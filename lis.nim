@@ -1,4 +1,16 @@
+import
+  strutils
+
+
+proc tokenize(input: string): seq[string] =
+  ##  Convert string into sequence of tokens.
+  input.replace("(", " ( ").replace(")", " ) ").split()
+
+
 proc main() =
-  discard
+  while true:
+    writeLine(stdout, "lisnim> ")
+    echo tokenize(readLine(stdin))
+
 
 main()
