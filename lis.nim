@@ -76,6 +76,14 @@ proc car(x: Atom): Atom =
 
 proc cdr(x: Atom): Atom =
   if x.kind == aList:
+    if x.list.len > 1: atom(x.list[1..^1])
+    else: atom()
+  else:
+    writeLine(stderr, "ERROR: Not a list: " & $x)
+    atom()
+
+proc quote(x: Atom): Atom =
+  if x.kind == aList:
     if x.list.len > 2: atom(x.list[1..^1])
     elif x.list.len == 2: x.list[1]
     else: atom()
@@ -335,13 +343,26 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     of aSymbol: # symbol
 
       if car.s == "quote":  # (quote exp)
-        return x.cdr
+        return x.quote
 
       if car.s == "list": # (list exp)
         var list: seq[Atom] = @[]
         for i in x.cdr.list:
           list.add(i)
         return atom(list)
+
+      if car.s == "if": # (if test conseq alt)
+        let cdr = x.cdr.list
+        if cdr.len != 3:
+          writeLine(stderr, "ERROR: If needs 3 arguments")
+          return atom(false)
+        else:
+          let test = eval(cdr[0], env)
+          if test.kind != aBool:
+            writeLine(stderr, "ERROR: Not a bool: " & $test)
+            return atom(false)
+          if test.b: return eval(cdr[1])
+          else: return eval(cdr[2])
 
       elif car.s == "define": # (define name value)
         let cdr = x.cdr.list
@@ -383,10 +404,9 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       else: # (fun arg...)
         let fun = eval(car, env)
         var args: seq[Atom] = @[]
-        if x.cdr.kind == aList:
-          if x.cdr.list.len > 0:
-            for i in x.cdr.list.items:
-              args.add(eval(i, env))
+        if x.cdr.list.len > 0:
+          for i in x.cdr.list.items:
+            args.add(eval(i, env))
         else:
           args.add(eval(x.cdr, env))
         if fun.kind == aFun: return fun.f.call(args, env)
