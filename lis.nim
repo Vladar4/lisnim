@@ -10,7 +10,17 @@ template number[T](i: T): Number = toRational(i)
 
 
 type
-  Fun = proc(args: openArray[Atom]): Atom {.cdecl.}
+  Env = ref EnvObj
+  EnvObj = object
+    table: TableRef[string, Atom]
+    outer: Env
+
+  Builtin = proc(args: openArray[Atom]): Atom {.cdecl.}
+
+  Fun = object
+    args: seq[string]
+    body: seq[Atom]
+    builtin: Builtin
 
   AtomKind = enum
     aList, aNumber, aSymbol, aBool, aFun
@@ -23,12 +33,21 @@ type
     of aBool: b: bool
     of aFun: f: Fun
 
+
+
+# ATOM #
+
 template atom(): Atom = Atom(kind: aList, list: @[])
 template atom(val: seq[Atom]): Atom = Atom(kind: aList, list: val)
 template atom(val: Number): Atom = Atom(kind: aNumber, n: val)
 template atom(val: string): Atom = Atom(kind: aSymbol, s: val)
 template atom(val: bool): Atom = Atom(kind: aBool, b: val)
-template atom(val: Fun): Atom = Atom(kind: aFun, f: val)
+proc atom(val: Fun): Atom = Atom(kind: aFun, f: val)
+proc atom(builtin: Builtin): Atom =
+  atom(Fun(args: @[], body: @[], builtin: builtin))
+proc atom(args: seq[string], body: seq[Atom]): Atom =
+  atom(Fun(args: args, body: body))
+
 
 proc `$`(obj: Atom): string =
   case obj.kind
@@ -66,15 +85,9 @@ proc cdr(x: Atom): Atom =
 
 # ENV #
 
-
-type
-  Env = ref EnvObj
-  EnvObj = object
-    table: TableRef[string, Atom]
-    outer: Env
-
 proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
   Env(table: newTable[string, Atom](pairs), outer: outer)
+
 
 proc `[]`(obj: Env, key: string): Atom =
   let key = key.toLower
@@ -83,6 +96,8 @@ proc `[]`(obj: Env, key: string): Atom =
   else: return atom(key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
+  if obj.table.contains(key):
+    writeLine(stderr, "WARNING: Overriding " & key)
   obj.table[key.toLower] = val
 
 
@@ -117,7 +132,6 @@ proc fun_divide(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`/`, args)
 
 
-
 var global_env = newEnv([
   ("t", atom(true)),
   ("nil", atom(false)),
@@ -128,6 +142,26 @@ var global_env = newEnv([
   ("*", atom(fun_multiply)),
   ("/", atom(fun_divide)),
   ])
+
+
+
+# FUN #
+
+proc eval(x: Atom, env: Env = global_env): Atom
+
+proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
+  if fun.body.len < 1:
+    return fun.builtin(args)
+  elif args.len == fun.args.len:
+    var params = newEnv([])
+    for i in 0..args.high:
+      params[fun.args[i]] = args[i]
+    let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
+    return eval(body, Env(table: params.table, outer: env))
+  else:
+    writeLine(stderr, "ERROR: Invalid arguments count: " &
+      $args.len & " instead of " & $fun.args.len)
+
 
 
 # PARSE #
@@ -220,7 +254,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
           writeLine(stderr, "ERROR: Define needs 2 arguments")
           return atom(false)
         else:
-          let name = eval(cdr[0])
+          let name = cdr[0]
           if name.kind != aSymbol:
             writeLine(stderr, "ERROR: Not a symbol: " & $name)
             return atom(false)
@@ -228,19 +262,43 @@ proc eval(x: Atom, env: Env = global_env): Atom =
             env[name.s] = eval(cdr[1], env)
         return atom(true)
 
+      elif car.s == "defun": # (defun name (args...) body)
+        let cdr = x.cdr.list
+        if cdr.len < 3:
+          writeLine(stderr, "ERROR: Defun needs at least 3 arguments")
+          return atom(false)
+        let name = cdr[0]
+        if name.kind != aSymbol:
+          writeLine(stderr, "ERROR: Not a symbol: " & $name)
+          return atom(false)
+        let arglist = cdr[1]
+        var args: seq[string] = @[]
+        if arglist.kind != aList:
+          writeLine(stderr, "ERROR: Missing arguments list for ", name.s)
+          return atom(false)
+        for i in arglist.list:
+          if i.kind != aSymbol:
+            writeLine(stderr, "ERROR: Not a symbol: " & $i)
+            return atom(false)
+          args.add(i.s)
+        let body = cdr[2..^1]
+        env[name.s] = atom(args, body)
+        return atom(true)
+
       else: # (fun arg...)
-        let car = eval(car, env)
-        var cdr: seq[Atom] = @[]
+        let fun = eval(car, env)
+        var args: seq[Atom] = @[]
         if x.cdr.list.len > 0:
           for i in x.cdr.list.items:
-            cdr.add(eval(i, env))
-        if car.kind == aFun: return car.f(cdr)
-        else: return car
+            args.add(eval(i, env))
+        if fun.kind == aFun: return fun.f.call(args, env)
+        else: return fun
 
     of aList: # list
       return eval(car, env)
 
     else:
+      echo x
       writeLine(stderr, "ERROR: Invalid function name: " & $car)
 
   of aNumber, aBool: # constant literal
@@ -250,7 +308,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     return env[x.s]
 
   of aFun:
-    return x.f([])
+    return x.f.call(@[], env)
 
 
 
