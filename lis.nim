@@ -39,6 +39,7 @@ type
 
 template atom(): Atom = Atom(kind: aList, list: @[])
 template atom(val: seq[Atom]): Atom = Atom(kind: aList, list: val)
+template atom(val: openArray[Atom]): Atom = Atom(kind: aList, list: @val)
 template atom(val: Number): Atom = Atom(kind: aNumber, n: val)
 template atom(val: string): Atom = Atom(kind: aSymbol, s: val)
 template atom(val: bool): Atom = Atom(kind: aBool, b: val)
@@ -149,6 +150,35 @@ proc fun_multiply(args: openArray[Atom]): Atom {.cdecl.} =
 proc fun_divide(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`/`, args)
 
+proc fun_max(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_numbers(`max`, args)
+
+proc fun_min(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_numbers(`min`, args)
+
+
+proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len > 1:
+    writeLine(stderr, "ERROR: Abs needs 1 argument")
+    return atom()
+  if args[0].kind == aNumber:
+    return atom(abs(args[0].n))
+  else:
+    writeLine(stderr, "ERROR: Not a number")
+    return atom()
+
+
+proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len > 1:
+    writeLine(stderr, "ERROR: Abs needs 1 argument")
+    return atom()
+  if args[0].kind == aNumber:
+    return atom(number((args[0].n).toInt))
+  else:
+    writeLine(stderr, "ERROR: Not a number")
+    return atom()
+
+
 proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`==`, args)
 
@@ -168,6 +198,16 @@ proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`<=`, args)
 
 
+proc fun_car(args: openArray[Atom]): Atom {.cdecl.} =
+  car(atom(args))
+
+proc fun_cdr(args: openArray[Atom]): Atom {.cdecl.} =
+  cdr(atom(args))
+
+proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
+  atom(number(len(args)))
+
+
 var global_env = newEnv([
   ("t", atom(true)),
   ("nil", atom(false)),
@@ -177,12 +217,19 @@ var global_env = newEnv([
   ("-", atom(fun_minus)),
   ("*", atom(fun_multiply)),
   ("/", atom(fun_divide)),
+  ("max", atom(fun_max)),
+  ("min", atom(fun_min)),
+  ("abs", atom(fun_abs)),
+  ("round", atom(fun_round)),
   ("=", atom(fun_eq)),
   ("!=", atom(fun_ne)),
   (">", atom(fun_gt)),
   ("<", atom(fun_lt)),
   (">=", atom(fun_ge)),
   ("<=", atom(fun_le)),
+  ("car", atom(fun_car)),
+  ("cdr", atom(fun_cdr)),
+  ("len", atom(fun_len)),
   ])
 
 
@@ -336,9 +383,12 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       else: # (fun arg...)
         let fun = eval(car, env)
         var args: seq[Atom] = @[]
-        if x.cdr.list.len > 0:
-          for i in x.cdr.list.items:
-            args.add(eval(i, env))
+        if x.cdr.kind == aList:
+          if x.cdr.list.len > 0:
+            for i in x.cdr.list.items:
+              args.add(eval(i, env))
+        else:
+          args.add(eval(x.cdr, env))
         if fun.kind == aFun: return fun.f.call(args, env)
         else: return fun
 
