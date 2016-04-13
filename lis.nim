@@ -52,8 +52,8 @@ proc atom(args: seq[string], body: seq[Atom]): Atom =
 proc `$`(obj: Atom): string =
   case obj.kind
   of aList:
-    result = "("
-    for i in obj.list: result &= $i
+    result = "( "
+    for i in obj.list: result &= $i & " "
     result &= ")"
   of aNumber:
     let
@@ -75,7 +75,8 @@ proc car(x: Atom): Atom =
 
 proc cdr(x: Atom): Atom =
   if x.kind == aList:
-    if x.list.len > 1: atom(x.list[1..^1])
+    if x.list.len > 2: atom(x.list[1..^1])
+    elif x.list.len == 2: x.list[1]
     else: atom()
   else:
     writeLine(stderr, "ERROR: Not a list: " & $x)
@@ -96,8 +97,6 @@ proc `[]`(obj: Env, key: string): Atom =
   else: return atom(key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
-  if obj.table.contains(key):
-    writeLine(stderr, "WARNING: Overriding " & key)
   obj.table[key.toLower] = val
 
 
@@ -247,6 +246,12 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 
       if car.s == "quote":  # (quote exp)
         return x.cdr
+
+      if car.s == "list": # (list exp)
+        var list: seq[Atom] = @[]
+        for i in x.cdr.list:
+          list.add(i)
+        return atom(list)
 
       elif car.s == "define": # (define name value)
         let cdr = x.cdr.list
