@@ -118,6 +118,25 @@ template fun_numbers(op: expr, args: openArray[Atom]): stmt =
       return atom()
 
 
+template fun_bool(op: expr, args: openArray[Atom]): stmt =
+  result = Atom(kind: aBool)
+  if args[0].kind notin {aNumber, aBool}:
+    writeLine(stderr, "ERROR: Not a number nor bool: " & $args[0])
+    return atom()
+
+  for i in 1..args.high:
+    if args[0].kind == aNumber:
+      if args[i].kind == aNumber: result.b = op(args[0].n, args[i].n)
+      else:
+        writeLine(stderr, "ERROR: Not a number: " & $args[i])
+        return atom()
+    else:
+      if args[i].kind == aBool: result.b = op(args[0].b, args[i].b)
+      else:
+        writeLine(stderr, "ERROR: Not a bool: " & $args[i])
+        return atom()
+
+
 proc fun_plus(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`+`, args)
 
@@ -130,6 +149,24 @@ proc fun_multiply(args: openArray[Atom]): Atom {.cdecl.} =
 proc fun_divide(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`/`, args)
 
+proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`==`, args)
+
+proc fun_ne(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`!=`, args)
+
+proc fun_gt(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`>`, args)
+
+proc fun_lt(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`<`, args)
+
+proc fun_ge(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`>=`, args)
+
+proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_bool(`<=`, args)
+
 
 var global_env = newEnv([
   ("t", atom(true)),
@@ -140,6 +177,12 @@ var global_env = newEnv([
   ("-", atom(fun_minus)),
   ("*", atom(fun_multiply)),
   ("/", atom(fun_divide)),
+  ("=", atom(fun_eq)),
+  ("!=", atom(fun_ne)),
+  (">", atom(fun_gt)),
+  ("<", atom(fun_lt)),
+  (">=", atom(fun_ge)),
+  ("<=", atom(fun_le)),
   ])
 
 
