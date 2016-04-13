@@ -1,33 +1,52 @@
 import
-  parseutils, strutils
+  parseutils, rationals, strutils
 
 
 type
+  Number = Rational[int]
+
+proc number[T](i: T): Number = toRational(i)
+
+type
   AtomKind = enum
-    aList, aInt, aFloat, aSymbol
+    aList, aNumber, aSymbol
 
   Atom = object
     case kind: AtomKind
     of aList: list: seq[Atom]
-    of aInt: i: int
-    of aFloat: f: float
+    of aNumber: n: Number
     of aSymbol: s: string
 
+
+
+# PARSE #
 
 proc tokenize(input: string): seq[string] {.noSideEffect.} =
   ##  Convert string into sequence of tokens.
   input.replace("(", " ( ").replace(")", " ) ").split()
 
 
-proc atom(token: string): Atom {.noSideEffect.} =
+proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
+  let s = str.split("/")
+  if s.len != 2: return false
+  if s[0].parseInt(num) != s[0].len: return false
+  if s[1].parseInt(den) != s[1].len: return false
+  return true
+
+
+proc toAtom(token: string): Atom =
   ##  Parse single token. If token is not a number, it is a symbol.
   var
     f: float
-    i: int
-  if token.parseFloat(f) > 0: Atom(kind: aFloat, f: f)  # token is float
-  elif token.parseInt(i) > 0: Atom(kind: aInt, i: i)    # token is int
-  else: Atom(kind: aSymbol, s: token)                   # token is symbol
-
+    i, num, den: int
+  if token.parseRatio(num, den):
+    Atom(kind: aNumber, n: num // den)  # token is ratio
+  elif token.parseInt(i) == token.len:
+    Atom(kind: aNumber, n: number(i))   # token is int
+  elif token.parseFloat(f) == token.len:
+    Atom(kind: aNumber, n: number(f))   # token is float
+  else:
+    Atom(kind: aSymbol, s: token)       # token is symbol
 
 
 proc read(tokens: var seq[string]): Atom =
@@ -40,16 +59,20 @@ proc read(tokens: var seq[string]): Atom =
 
   if token == "(":
     result = Atom(kind: aList, list: @[])  # start new list
-    while tokens[^1] != ")":
+
+    while tokens.len > 0:
+      if tokens[^1] == ")":
+        discard tokens.pop()
+        return
       result.list.add(tokens.read()) # read list items
-    discard tokens.pop() # pop off ")"
+    writeLine(stderr, "ERROR: Missing )")
     return
 
   elif token == ")":
     writeLine(stderr, "ERROR: Unexpected )")
 
   else:
-    return atom(token)
+    return token.toAtom
 
 
 proc reverse[T](input: seq[T]): seq[T] {.noSideEffect.} =
@@ -65,10 +88,13 @@ proc parse(input: string): Atom =
   tokens.read()
 
 
+
+# MAIN #
+
 proc main() =
   while true:
     write(stdout, "lisnim> ")
-    echo parse(readLine(stdin))
+    echo parse(normalize(readLine(stdin)))
 
 
 main()
