@@ -80,7 +80,7 @@ proc `[]`(obj: Env, key: string): Atom =
   let key = key.toLower
   if obj.table.contains(key): return obj.table[key]
   elif obj.outer != nil: return obj.outer[key]
-  else: return atom(false)
+  else: return atom(key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   obj.table[key.toLower] = val
@@ -205,12 +205,30 @@ proc eval(x: Atom, env: Env = global_env): Atom =
   ##  Evalueate an expression in an environment.
   case x.kind
   of aList:
+    if x.list.len < 1:
+      return atom()
     let car = x.car
     case car.kind
-    of aSymbol: # function
+    of aSymbol: # symbol
+
       if car.s == "quote":  # (quote exp)
         return x.cdr
-      else:
+
+      elif car.s == "define": # (define name value)
+        let cdr = x.cdr.list
+        if cdr.len != 2:
+          writeLine(stderr, "ERROR: Define needs 2 arguments")
+          return atom(false)
+        else:
+          let name = eval(cdr[0])
+          if name.kind != aSymbol:
+            writeLine(stderr, "ERROR: Not a symbol: " & $name)
+            return atom(false)
+          else:
+            env[name.s] = eval(cdr[1], env)
+        return atom(true)
+
+      else: # (fun arg...)
         let car = eval(car, env)
         var cdr: seq[Atom] = @[]
         if x.cdr.list.len > 0:
@@ -218,16 +236,21 @@ proc eval(x: Atom, env: Env = global_env): Atom =
             cdr.add(eval(i, env))
         if car.kind == aFun: return car.f(cdr)
         else: return car
-    of aList:
+
+    of aList: # list
       return eval(car, env)
+
     else:
-      writeLine(stderr, "ERROR: invalid function name: " & $car)
+      writeLine(stderr, "ERROR: Invalid function name: " & $car)
+
   of aNumber, aBool: # constant literal
     return x
+
   of aSymbol: # variable reference
     return env[x.s]
+
   of aFun:
-    echo x.f([])
+    return x.f([])
 
 
 
