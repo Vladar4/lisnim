@@ -216,7 +216,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
         if x.cdr.list.len > 0:
           for i in x.cdr.list.items:
             cdr.add(eval(i, env))
-        if car.kind == aFun: echo car.f(cdr)
+        if car.kind == aFun: return car.f(cdr)
         else: return car
     of aList:
       return eval(car, env)
