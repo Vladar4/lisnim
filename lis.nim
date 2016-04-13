@@ -218,6 +218,8 @@ proc eval(x: Atom, env: Env = global_env): Atom =
             cdr.add(eval(i, env))
         if car.kind == aFun: echo car.f(cdr)
         else: return car
+    of aList:
+      return eval(car, env)
     else:
       writeLine(stderr, "ERROR: invalid function name: " & $car)
   of aNumber, aBool: # constant literal
@@ -225,7 +227,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
   of aSymbol: # variable reference
     return env[x.s]
   of aFun:
-    discard
+    echo x.f([])
 
 
 
@@ -234,7 +236,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 proc main() =
   while true:
     write(stdout, "lisnim> ")
-    discard eval(parse(readLine(stdin)))
+    echo eval(parse(readLine(stdin)))
 
 
 main()
