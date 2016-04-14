@@ -1,4 +1,4 @@
-# lis.nim
+# lisnim
 # Copyright (C) 2016 Vladar
 # 
 # This software is provided 'as-is', without any express or implied
