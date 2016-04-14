@@ -103,7 +103,9 @@ proc `[]`(obj: Env, key: string): Atom =
   let key = key.toLower
   if obj.table.contains(key): return obj.table[key]
   elif obj.outer != nil: return obj.outer[key]
-  else: return atom(key)
+  else:
+    writeLine(stderr, "ERROR: no such variable: ", key)
+    return atom(key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   obj.table[key.toLower] = val
@@ -247,12 +249,12 @@ var global_env = newEnv([
 proc eval(x: Atom, env: Env = global_env): Atom
 
 proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
-  if fun.body.len < 1:
+  if fun.body.len < 1:  # built-in function
     return fun.builtin(args)
-  elif args.len == fun.args.len:
+  elif args.len == fun.args.len:  # defun function
     var params = newEnv([])
     for i in 0..args.high:
-      params[fun.args[i]] = args[i]
+      params[fun.args[i]] = eval(args[i], env)
     let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
     return eval(body, Env(table: params.table, outer: env))
   else:
@@ -361,8 +363,8 @@ proc eval(x: Atom, env: Env = global_env): Atom =
           if test.kind != aBool:
             writeLine(stderr, "ERROR: Not a bool: " & $test)
             return atom(false)
-          if test.b: return eval(cdr[1])
-          else: return eval(cdr[2])
+          if test.b: return eval(cdr[1], env)
+          else: return eval(cdr[2], env)
 
       elif car.s == "define": # (define name value)
         let cdr = x.cdr.list
@@ -407,16 +409,16 @@ proc eval(x: Atom, env: Env = global_env): Atom =
         if x.cdr.list.len > 0:
           for i in x.cdr.list.items:
             args.add(eval(i, env))
-        else:
+        else: # just one argument
           args.add(eval(x.cdr, env))
         if fun.kind == aFun: return fun.f.call(args, env)
-        else: return fun
+        else:
+          return fun
 
     of aList: # list
       return eval(car, env)
 
     else:
-      echo x
       writeLine(stderr, "ERROR: Invalid function name: " & $car)
 
   of aNumber, aBool: # constant literal
@@ -435,7 +437,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 proc main() =
   while true:
     write(stdout, "lisnim> ")
-    echo eval(parse(readLine(stdin)))
+    writeLine(stdout, eval(parse(readLine(stdin))))
 
 
 main()
