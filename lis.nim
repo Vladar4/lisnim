@@ -1,5 +1,5 @@
 import
-  parseutils, rationals, strutils, tables
+  os, parseutils, rationals, strutils, tables
 
 
 
@@ -477,7 +477,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
           args.add(i.s)
         let body = cdr[2..^1]
         env[name.s] = atom(args, body)
-        return atom(true)
+        return (atom(name.s.toUpper))
 
       else: # (fun arg...)
         let fun = eval(car, env)
@@ -487,7 +487,8 @@ proc eval(x: Atom, env: Env = global_env): Atom =
             args.add(eval(i, env))
         else: # just one argument
           args.add(eval(x.cdr, env))
-        if fun.kind == aFun: return fun.f.call(args, env)
+        if fun.kind == aFun:
+          return fun.f.call(args, env)
         else:
           return fun
 
@@ -512,6 +513,9 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 # MAIN #
 
 proc main() =
+  for i in 1..paramCount():
+    writeLine(stdout, eval(parse(readFile(paramStr(i)))))
+
   while true:
     write(stdout, "lisnim> ")
     writeLine(stdout, eval(parse(readLine(stdin))))
