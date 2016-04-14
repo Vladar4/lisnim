@@ -3,6 +3,13 @@ lisnim - Lisp interpreter in Nim
 
 Inspired by [lis.py](http://norvig.com/lispy.html) by Peter Norvig.
 
+This is "just for fun" project. Don't expect much.
+
+Usage
+-----
+
+lis [source1 source2 ...]
+
 Syntax
 ------
 
@@ -30,3 +37,12 @@ Built-in functions
 * **Comparison:** =, !=, >, <, >=, <=
 * **List:** car, cdr, len
 
+Example
+-------
+
+(defun factorial (n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))
+
+Notes
+-----
+
+* Nested functions are not supported.
