@@ -217,12 +217,30 @@ proc fun_mod(args: openArray[Atom]): Atom {.cdecl.} =
     return atom()
   for i in args:
     if i.kind != aNumber:
-      writeLine(stderr, "ERROR: Not a number:", $i)
+      writeLine(stderr, "ERROR: Not a number: ", $i)
       return atom()
   let
     a = fun_divide([args[0], args[1]])
     b = fun_round([a])
   return atom(a.n - b.n)
+
+proc fun_odd(args: openArray[Atom]): Atom {.cdecl.} =
+  for i in args:
+    if i.kind != aNumber:
+      writeLine(stderr, "ERROR: Not a number: ", $i)
+      return atom(false)
+    if fun_mod([i, atom(number(2))]).n == number(0):
+      return atom(false)
+  return atom(true)
+
+proc fun_even(args: openArray[Atom]): Atom {.cdecl.} =
+  for i in args:
+    if i.kind != aNumber:
+      writeLine(stderr, "ERROR: Not a number: ", $i)
+      return atom(false)
+    if fun_mod([i, atom(number(2))]).n != number(0):
+      return atom(false)
+  return atom(true)
 
 proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`==`, args)
@@ -268,6 +286,8 @@ var global_env = newEnv([
   ("abs", atom(fun_abs)),
   ("round", atom(fun_round)),
   ("mod", atom(fun_mod)),
+  ("odd?", atom(fun_odd)),
+  ("even?", atom(fun_even)),
   ("=", atom(fun_eq)),
   ("!=", atom(fun_ne)),
   (">", atom(fun_gt)),
