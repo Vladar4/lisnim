@@ -261,13 +261,25 @@ proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`<=`, args)
 
 proc fun_car(args: openArray[Atom]): Atom {.cdecl.} =
-  car(atom(args))
+  if args.len > 1:
+    writeLine(stderr, "ERROR: Car needs 1 argument")
+    return atom()
+  car(atom(args[0].list))
 
 proc fun_cdr(args: openArray[Atom]): Atom {.cdecl.} =
-  cdr(atom(args))
+  if args.len > 1:
+    writeLine(stderr, "ERROR: Cdr needs 1 argument")
+    return atom()
+  cdr(atom(args[0].list))
 
 proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
-  atom(number(len(args)))
+  if args.len > 1:
+    writeLine(stderr, "ERROR: Len needs 1 argument")
+    return atom()
+  if args[0].kind == aList:
+    return atom(number(len(args[0].list)))
+  else:
+    return atom(number(1))
 
 
 var global_env = newEnv([
@@ -414,7 +426,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       if car.s == "list": # (list exp)
         var list: seq[Atom] = @[]
         for i in x.cdr.list:
-          list.add(i)
+          list.add(eval(i, env))
         return atom(list)
 
       if car.s == "if": # (if test conseq alt)
@@ -483,7 +495,8 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       return eval(car, env)
 
     else:
-      writeLine(stderr, "ERROR: Invalid function name: " & $car)
+      return x
+      #writeLine(stderr, "ERROR: Invalid function name: " & $car)
 
   of aNumber, aBool: # constant literal
     return x
