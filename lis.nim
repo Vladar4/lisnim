@@ -2,6 +2,9 @@ import
   parseutils, rationals, strutils, tables
 
 
+
+# NUMBER #
+
 type
   Number = Rational[int]
 
@@ -9,29 +12,32 @@ template number(i: float): Number = toRational(i, high(int32))
 template number[T](i: T): Number = toRational(i)
 
 
+
+# ENV, BUILTIN, FUN, ATOM #
+
 type
-  Env = ref EnvObj
+  Env = ref EnvObj  ##  Environment for ``eval()``
   EnvObj = object
     table: TableRef[string, Atom]
     outer: Env
 
-  Builtin = proc(args: openArray[Atom]): Atom {.cdecl.}
+  Builtin = proc(args: openArray[Atom]): Atom {.cdecl.} ##  Built-in proc type
 
-  Fun = object
-    args: seq[string]
-    body: seq[Atom]
-    builtin: Builtin
+  Fun = object  ##  Function object
+    args: seq[string] ##  Function arguments (for user-defined functions)
+    body: seq[Atom]   ##  Function body (for user-defined functions)
+    builtin: Builtin  ##  Function reference (for built-in functions)
 
   AtomKind = enum
     aList, aNumber, aSymbol, aBool, aFun
 
-  Atom = object
-    case kind: AtomKind
-    of aList: list: seq[Atom]
-    of aNumber: n: Number
-    of aSymbol: s: string
-    of aBool: b: bool
-    of aFun: f: Fun
+  Atom = object ##  Atom type
+    case kind: AtomKind ##  Variant of
+    of aList: list: seq[Atom] ##  List of atoms
+    of aNumber: n: Number     ##  Number
+    of aSymbol: s: string     ##  Symbol
+    of aBool: b: bool         ##  Boolean
+    of aFun: f: Fun           ##  Function
 
 
 
@@ -51,22 +57,24 @@ proc atom(args: seq[string], body: seq[Atom]): Atom =
 
 
 proc `$`(obj: Atom): string =
+  ##  Convert ``Atom`` to ``string``.
   case obj.kind
-  of aList:
+  of aList:                                   # List
     result = "( "
     for i in obj.list: result &= $i & " "
     result &= ")"
-  of aNumber:
+  of aNumber:                                 # Number
     let
       f = obj.n.toFloat
       i = obj.n.toInt
     if f - i.float != 0: return $f
     else: return $i
-  of aSymbol: return obj.s
-  of aBool: return if obj.b: "T" else: "NIL"
-  of aFun: return "Function"
+  of aSymbol: return obj.s                    # Symbol
+  of aBool: return if obj.b: "T" else: "NIL"  # Boolean
+  of aFun: return "Function"                  # Function
 
 proc car(x: Atom): Atom =
+  ##  ``Return`` head of ``Atom.list``.
   if x.kind == aList:
     if x.list.len > 0: x.list[0]
     else: atom()
@@ -75,6 +83,7 @@ proc car(x: Atom): Atom =
     atom()
 
 proc cdr(x: Atom): Atom =
+  ##  ``Return`` tail of ``Atom.list``.
   if x.kind == aList:
     if x.list.len > 1: atom(x.list[1..^1])
     else: atom()
@@ -83,9 +92,11 @@ proc cdr(x: Atom): Atom =
     atom()
 
 proc quote(x: Atom): Atom =
+  ##  ``Return`` tail of ``x.list`` as list or as single ``Atom``
+  ##  (in case of tail's length of 1).
   if x.kind == aList:
     if x.list.len > 2: atom(x.list[1..^1])
-    elif x.list.len == 2: x.list[1]
+    elif x.list.len == 2: x.list[1] # tail is 1 atom long
     else: atom()
   else:
     writeLine(stderr, "ERROR: Not a list: " & $x)
@@ -96,10 +107,11 @@ proc quote(x: Atom): Atom =
 # ENV #
 
 proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
+  ##  Create new ``Env``.
   Env(table: newTable[string, Atom](pairs), outer: outer)
 
-
 proc `[]`(obj: Env, key: string): Atom =
+  ##  Get ``key`` value from environment.
   let key = key.toLower
   if obj.table.contains(key): return obj.table[key]
   elif obj.outer != nil: return obj.outer[key]
@@ -108,13 +120,15 @@ proc `[]`(obj: Env, key: string): Atom =
     return atom(key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
+  ##  Set ``key`` in environment to given ``val``.
   obj.table[key.toLower] = val
 
 
 
 # GLOBAL_ENV #
 
-template fun_numbers(op: expr, args: openArray[Atom]): stmt =
+template fun_numbers*(op: expr, args: openArray[Atom]): stmt =
+  ##  Template for functions of type op(num1, num2, ...): num.
   if args[0].kind == aNumber:
     result = atom(args[0].n)
   else:
@@ -129,7 +143,8 @@ template fun_numbers(op: expr, args: openArray[Atom]): stmt =
       return atom()
 
 
-template fun_bool(op: expr, args: openArray[Atom]): stmt =
+template fun_bool*(op: expr, args: openArray[Atom]): stmt =
+  ##  Template for functions of type op(num1, num2, ...): bool
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
     writeLine(stderr, "ERROR: Not a number nor bool: " & $args[0])
@@ -166,7 +181,6 @@ proc fun_max(args: openArray[Atom]): Atom {.cdecl.} =
 proc fun_min(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`min`, args)
 
-
 proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len > 1:
     writeLine(stderr, "ERROR: Abs needs 1 argument")
@@ -177,7 +191,6 @@ proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
     writeLine(stderr, "ERROR: Not a number")
     return atom()
 
-
 proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len > 1:
     writeLine(stderr, "ERROR: Abs needs 1 argument")
@@ -187,7 +200,6 @@ proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
   else:
     writeLine(stderr, "ERROR: Not a number")
     return atom()
-
 
 proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`==`, args)
@@ -206,7 +218,6 @@ proc fun_ge(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`<=`, args)
-
 
 proc fun_car(args: openArray[Atom]): Atom {.cdecl.} =
   car(atom(args))
@@ -246,14 +257,14 @@ var global_env = newEnv([
 
 # FUN #
 
-proc eval(x: Atom, env: Env = global_env): Atom
+proc eval(x: Atom, env: Env = global_env): Atom # Forward declaration
 
 proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
   if fun.body.len < 1:  # built-in function
     return fun.builtin(args)
   elif args.len == fun.args.len:  # defun function
     var params = newEnv([])
-    for i in 0..args.high:
+    for i in 0..args.high:  # Eval each argument
       params[fun.args[i]] = eval(args[i], env)
     let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
     return eval(body, Env(table: params.table, outer: env))
@@ -266,13 +277,14 @@ proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
 # PARSE #
 
 proc tokenize(input: string): seq[string] {.noSideEffect.} =
-  ##  Convert string into sequence of tokens.
+  ##  Convert ``input`` string into sequence of tokens.
   input.replace("(", " ( ").replace(")", " ) ").split()
 
 
 proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
   ##  Parse string ("num/den") to ratio and write result to ``num`` and ``den``.
-  ##  Return ``true`` on success, ``false`` otherwise.
+  ##
+  ##  ``Return`` ``true`` on success, ``false`` otherwise.
   let s = str.split("/")
   if s.len != 2: return false
   if s[0].len < 1 or s[1].len < 1: return false
@@ -282,7 +294,7 @@ proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
 
 
 proc toAtom(token: string): Atom =
-  ##  Parse single token. If token is not a number, it is a symbol.
+  ##  Parse single ``token``. If token is not a number, it is a symbol.
   var
     f: float
     i, num, den: int
@@ -293,7 +305,9 @@ proc toAtom(token: string): Atom =
 
 
 proc read(tokens: var seq[string]): Atom =
-  ##  Read an expression from a sequence of tokens.
+  ##  Read an expression from a sequence of ``tokens``.
+  ##
+  ##  ``Return`` parsed ``Atom``.
   if tokens.len == 0: # no tokens
     writeLine(stderr, "ERROR: Unexpected EOF while reading")
     return Atom(kind: aList, list: @[]) # return empty list
@@ -319,7 +333,7 @@ proc read(tokens: var seq[string]): Atom =
 
 
 proc reverse[T](input: seq[T]): seq[T] {.noSideEffect.} =
-  ## Reverse given sequence.
+  ## ``Return`` reversed ``input`` sequence.
   result = @[]
   for i in countdown(input.high, 0):
     result.add(input[i])
@@ -327,6 +341,8 @@ proc reverse[T](input: seq[T]): seq[T] {.noSideEffect.} =
 
 proc parse(input: string): Atom =
   ##  Read an expression from ``input`` string.
+  ##
+  ##  ``Return`` parsed ``Atom``.
   var tokens = input.tokenize().reverse()
   tokens.read()
 
@@ -335,7 +351,9 @@ proc parse(input: string): Atom =
 # EVAL #
 
 proc eval(x: Atom, env: Env = global_env): Atom =
-  ##  Evalueate an expression in an environment.
+  ##  Evalueate an expression ``x`` in an environment ``env``.
+  ##
+  ##  ``Return`` evaluated ``Atom``.
   case x.kind
   of aList:
     if x.list.len < 1:
