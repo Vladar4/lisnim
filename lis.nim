@@ -127,7 +127,13 @@ proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
 
 # GLOBAL_ENV #
 
-template fun_numbers*(op: expr, args: openArray[Atom]): stmt =
+template fun_isType(typ: AtomKind, args: openArray[Atom]): stmt =
+  ##  Template for function of type kind(atom): bool.
+  for i in args:
+    if i.kind != typ: return atom(false)
+  return atom(true)
+
+template fun_numbers(op: expr, args: openArray[Atom]): stmt =
   ##  Template for functions of type op(num1, num2, ...): num.
   if args[0].kind == aNumber:
     result = atom(args[0].n)
@@ -142,8 +148,7 @@ template fun_numbers*(op: expr, args: openArray[Atom]): stmt =
       writeLine(stderr, "ERROR: Not a number: " & $args[i])
       return atom()
 
-
-template fun_bool*(op: expr, args: openArray[Atom]): stmt =
+template fun_bool(op: expr, args: openArray[Atom]): stmt =
   ##  Template for functions of type op(num1, num2, ...): bool
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
@@ -162,6 +167,11 @@ template fun_bool*(op: expr, args: openArray[Atom]): stmt =
         writeLine(stderr, "ERROR: Not a bool: " & $args[i])
         return atom()
 
+proc fun_isBool(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_isType(aBool, args)
+
+proc fun_isNumber(args: openArray[Atom]): Atom {.cdecl.} =
+  fun_isType(aNumber, args)
 
 proc fun_plus(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`+`, args)
@@ -188,7 +198,7 @@ proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
   if args[0].kind == aNumber:
     return atom(abs(args[0].n))
   else:
-    writeLine(stderr, "ERROR: Not a number")
+    writeLine(stderr, "ERROR: Not a number: ", $args[0])
     return atom()
 
 proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
@@ -198,8 +208,21 @@ proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
   if args[0].kind == aNumber:
     return atom(number((args[0].n).toInt))
   else:
-    writeLine(stderr, "ERROR: Not a number")
+    writeLine(stderr, "ERROR: Not a number: ", $args[0])
     return atom()
+
+proc fun_mod(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 2:
+    writeLine(stderr, "ERROR: Mod needs 2 arguments")
+    return atom()
+  for i in args:
+    if i.kind != aNumber:
+      writeLine(stderr, "ERROR: Not a number:", $i)
+      return atom()
+  let
+    a = fun_divide([args[0], args[1]])
+    b = fun_round([a])
+  return atom(a.n - b.n)
 
 proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`==`, args)
@@ -232,6 +255,8 @@ proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
 var global_env = newEnv([
   ("t", atom(true)),
   ("nil", atom(false)),
+  ("bool?", atom(fun_isBool)),
+  ("number?", atom(fun_isNumber)),
   ("pi", atom(number(3.141592653589793))),
   ("e", atom(number(2.718281828459045))),
   ("+", atom(fun_plus)),
@@ -242,6 +267,7 @@ var global_env = newEnv([
   ("min", atom(fun_min)),
   ("abs", atom(fun_abs)),
   ("round", atom(fun_round)),
+  ("mod", atom(fun_mod)),
   ("=", atom(fun_eq)),
   ("!=", atom(fun_ne)),
   (">", atom(fun_gt)),
