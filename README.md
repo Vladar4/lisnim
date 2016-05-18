@@ -45,7 +45,7 @@ Built-in functions
 Example
 -------
 
-(def (factorial n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))
+`(def (factorial n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))`
 
 Building
 --------
@@ -74,8 +74,10 @@ File should consist of individual expressions, one per line.
 
 Or you can use \\ before line break to span a single expression on multiple lines.
 
-`(def (plus2 n) \\
-  (+ n 2))`
+```
+(def (plus2 n) \
+  (+ n 2))
+```
 
 Notes
 -----
