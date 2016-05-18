@@ -537,7 +537,11 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 
 proc main() =
   for i in 1..paramCount():
-    writeLine(stdout, eval(parse(readFile(paramStr(i)))))
+    var file = open(paramStr(i))
+    var line = ""
+    while readLine(file, line):
+      writeLine(stdout, eval(parse(line)))
+    file.close()
 
   while true:
     write(stdout, "lisnim> ")
