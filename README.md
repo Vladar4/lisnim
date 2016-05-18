@@ -13,11 +13,13 @@ lis [source1 source2 ...]
 Syntax
 ------
 
-* (quote ...)
+* (quote ...) or '(...)
 * (list ...)
 * (if test conseq alt)
-* (define name value)
-* (defun name (args...) body)
+* (def name value)
+* (def (name args...) body)
+* (lambda (args...) body)
+* (echo arg) // returns arg
 * (some-function args...)
 
 Types
@@ -32,15 +34,42 @@ Built-in functions
 
 * **Boolean:** t, nil
 * **Type-check:** bool?, number?
+* **Check:** nil?, null?
 * **Constants:** pi, e
 * **Arithmetics:** +, -, \*, /, max, min, abs, round, mod, odd?, even?
 * **Comparison:** =, !=, >, <, >=, <=
-* **List:** car, cdr, len
+* **List:** cons, car, cdr, len
+* **Output:** echo
+* **Exit:** exit, quit (with optional errorcode)
 
 Example
 -------
 
-(defun factorial (n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))
+(def (factorial n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))
+
+Building
+--------
+
+To build:
+`nim c lis.nim`
+
+To run on Linux:
+`./lis`
+`./lis filename`
+
+To run on Windows:
+`.\lis.exe`
+`.\lis.exe filename`
+
+File
+----
+
+File should consist of individual expressions, one per line.
+(def (plus1 n) (+ n 1))
+
+Or you can use \\ before line break to span a single expression on multiple lines.
+(def (plus2 n) \\
+  (+ n 2))
 
 Notes
 -----
