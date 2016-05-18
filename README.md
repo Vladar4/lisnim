@@ -54,22 +54,28 @@ To build:
 `nim c lis.nim`
 
 To run on Linux:
+
 `./lis`
+
 `./lis filename`
 
 To run on Windows:
+
 `.\lis.exe`
+
 `.\lis.exe filename`
 
 File
 ----
 
 File should consist of individual expressions, one per line.
-(def (plus1 n) (+ n 1))
+
+`(def (plus1 n) (+ n 1))`
 
 Or you can use \\ before line break to span a single expression on multiple lines.
-(def (plus2 n) \\
-  (+ n 2))
+
+`(def (plus2 n) \\
+  (+ n 2))`
 
 Notes
 -----
