@@ -9,48 +9,50 @@ Usage
 -----
 
 Linux: `./lis [source1 source2 ...]`
+
 Windows: `.\lis.exe [source1 source2 ...]`
 
 Syntax
 ------
 
-* `(quote ...) or '(...)`
-* `(list ...)`
-* `(if test conseq alt)`
-* `(echo arg)` Prints and returns `arg`
++ * `(quote ...) or '(...)`
+  * `(list ...)`
+  * `(if test conseq alt)`
+  * `(echo arg)` Prints and returns `arg`
 
-* `(def name value)` Binds `value` to `name`
-* `(def (name args...) body)` Defines function `name` with `args`. Equivalent of `(def name (lambda (args...) body))`
-* `(fn-name args...)` Function application
++ * `(def name value)` Binds `value` to `name`
+  * `(def (name args...) body)` Defines function `name` with `args`. Equivalent of `(def name (lambda (args...) body))`
+  * `(fn-name args...)` Function application
 
-* `(lambda (args...) body)` Anomymous function
-* `(\ (args...) body)` Lambda a la Haskell :) \x -> x + x
-* `(fn arg body)` Lambda of one argument. Useful for curried functions
-* `(fun arg body)` Variant of the above for those of us who like to have some fun
-* `((lambda (x y) (+ x y)) 5 6)` Lambda application
++ * `(lambda (args...) body)` Anomymous function
+  * `(\ (args...) body)` Lambda a la Haskell :) \x -> x + x
+  * `(fn arg body)` Lambda of one argument. Useful for curried functions
+  * `(fun arg body)` Variant of the above for those of us who like to have some fun
+  * `((lambda (x y) (+ x y)) 5 6)` Lambda application
 
-* `(do (expr1) (expr2) ...)` Sequential evaluation with results of previous evaluation being saved in local environment. This means that variable `i` defined in `expr1` is visible in all following expressions, but not visible outside of `do`
-* `(begin (expr1) (expr2) ...)` Syntactic variant of the above
++ * `(do (expr1) (expr2) ...)`
+  Sequential evaluation with results of previous evaluation being saved in local environment. This means that variable `i` defined in `expr1` is visible in all following expressions, but not visible outside of `do`
+  * `(begin (expr1) (expr2) ...)` Syntactic variant of the above
 
 Types
 -----
 
-* List: (item1 item2 ...)
-* Number: int, float or ratio
-* Bool: T or NIL
+* List: `(item1 item2 ...)`
+* Number: `int`, `float` or `ratio` e.g. `5`, `3.1415926`, `42/7`
+* Bool: `T` or `NIL`
 
 Built-in functions
 ------------------
 
-* **Boolean:** t, nil
-* **Type-check:** bool?, number?
-* **Check:** nil?, null?
-* **Constants:** pi, e
-* **Arithmetics:** +, -, \*, /, max, min, abs, round, mod, odd?, even?
-* **Comparison:** =, !=, >, <, >=, <=
-* **List:** cons, car, cdr, len
-* **Output:** echo
-* **Exit:** exit, quit (with optional errorcode)
+* **Boolean:** `t`, `nil`
+* **Type-check:** `bool?`, `number?`
+* **Check:** `nil?`, `null?`
+* **Constants:** `pi`, `e`
+* **Arithmetics:** `+`, `-`, `*`, `/`, `max`, `min`, `abs`, `round`, `mod`, `odd?`, `even?`
+* **Comparison:** `=`, `!=`, `>`, `<`, `>=`, `<=`
+* **List:** `cons`, `car`, `cdr`, `len`
+* **Output:** `echo`
+* **Exit:** `exit`, `quit` (with optional errorcode)
 
 Example
 -------
