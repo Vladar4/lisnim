@@ -117,4 +117,12 @@ Or you can use \\ before line break to span a single expression on multiple line
 Notes
 -----
 
-* Nested functions are not supported.
+* Nested functions ARE now supported.
+
+```
+(def (f x) \
+  (do
+    (def (g x) (+ x 1))
+    (g x)))
+ ; `g` is visible inside `f`, but not outside
+```
