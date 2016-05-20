@@ -23,7 +23,7 @@
 
 
 import
-  os, parseutils, rationals, strutils, tables
+  os, parseutils, rationals, strutils, tables, sequtils
 
 
 
@@ -54,6 +54,7 @@ type
     args: seq[string] ##  Function arguments (for user-defined functions)
     body: seq[Atom]   ##  Function body (for user-defined functions)
     builtin: Builtin  ##  Function reference (for built-in functions)
+    env:  Env         ##  Env the function was defined in (for user-defined functions)
 
   AtomKind = enum
     aList, aNumber, aSymbol, aBool, aFun, aError
@@ -68,8 +69,6 @@ type
     of aError: e: Error       ##  Error
 
   NumberBoolFunc = proc(a, b: Number): bool
-
-# TODO: factor out atom(Error)'s
 
 # ATOM #
 
@@ -88,26 +87,34 @@ proc atom(val: Fun): Atom = Atom(kind: aFun, f: val)
 proc atom(err: Error): Atom = Atom(kind: aError, e: err)
 proc atom(builtin: Builtin): Atom =
   atom(Fun(args: @[], body: @[], builtin: builtin))
-proc atom(args: seq[string], body: seq[Atom]): Atom =
-  atom(Fun(args: args, body: body))
+proc atom(args: seq[string], body: seq[Atom], env: Env): Atom =
+  atom(Fun(args: args, body: body, env: env))
+proc err(val: string): Atom = Atom(kind: aError, e: Error(s: val))
 
 proc `$`(obj: Atom): string =
   ##  Convert ``Atom`` to ``string``.
   case obj.kind
-  of aList:                                   # List
+  of aList:                                     # List
     result = "( "
     for i in obj.list: result &= $i & " "
     result &= ")"
-  of aNumber:                                 # Number
+  of aNumber:                                   # Number
     let
       f = obj.n.toFloat
       i = obj.n.toInt
     if f - i.float != 0: return $f
     else: return $i
-  of aSymbol: return obj.s                    # Symbol
-  of aBool: return if obj.b: "T" else: "NIL"  # Boolean
-  of aFun: return "Function"                  # Function
-  of aError: return "ERROR: " & obj.e.s       # Error
+  of aSymbol: return obj.s                      # Symbol
+  of aBool: result = if obj.b: "T" else: "NIL"  # Boolean
+  of aFun:                                      # Function
+    if obj.f.body.len > 0:
+      let args = if obj.f.args.len > 0:
+                   "(" & obj.f.args.foldl(a & ", " & b) & ")"
+                 else: "()"
+      result = "Fn " & args
+    else:
+      result = "Built-in function"
+  of aError: return "ERROR: " & obj.e.s         # Error
 
 
 # For NumberBoolFunc
@@ -128,9 +135,14 @@ proc write(err: Error): Error =
 
 # Symbol procs
 proc is_quoted(a: Atom): bool =
-  case a.kind:
-  of aSymbol: return a.s[0] == '\''
-  else: return false
+  return case a.kind:
+    of aSymbol: a.s[0] == '\''
+    else: false
+
+proc is_comment(a: Atom): bool =
+  return case a.kind:
+    of aSymbol: a.s[0] == ';'
+    else: false
 
 proc is_valid_id(a: Atom): bool =
   return a.kind == aSymbol and not is_quoted(a)
@@ -149,7 +161,7 @@ proc car(x: Atom): Atom =
       if x.list.len > 0: x.list[0]
       else: atom(false)
     of aError: x
-    else: atom(Error(s: "Not a list: " & $x))
+    else: err("Not a list: " & $x)
 
 proc cdr(x: Atom): Atom =
   ##  ``Return`` tail of ``Atom.list``.
@@ -158,7 +170,7 @@ proc cdr(x: Atom): Atom =
       if x.list.len > 1: atom(x.list[1..^1])
       else: atom(false)
     of aError: x
-    else: atom(Error(s: "Not a list: " & $x))
+    else: err("Not a list: " & $x)
 
 proc quote(x: Atom): Atom =
   ##  ``Return`` tail of ``x.list`` as list or as single ``Atom``
@@ -166,10 +178,10 @@ proc quote(x: Atom): Atom =
   case x.kind:
     of aList:
       if x.list.len != 2:
-        return atom(Error(s: "Quote requres 1 argument"))
+        return err("Quote requres 1 argument")
       else:
         return x.list[1]
-    else: return atom(Error(s: "Illegal argument for quote"))
+    else: return err("Illegal argument for quote")
 
 proc toStrList(a: Atom): seq[string] =
   result = @[]
@@ -181,9 +193,30 @@ proc toStrList(a: Atom): seq[string] =
         else: return @[]
     else: return
 
+proc take[T](ls: seq[T], n: int = 1): seq[T] =
+  return if n > ls.len: ls
+         elif n < 1: @[]
+         else: ls[0 .. <n]
+
+proc takelast[T](ls: seq[T], n: int = 1): seq[T] =
+  return if n > ls.len: ls
+         elif n < 1: @[]
+         else: ls[^n .. ^1]
+
+proc drop[T](ls: seq[T], n: int = 1): seq[T] =
+  return if n > ls.len: @[]
+         elif n < 1: ls
+         else: ls[n .. ls.high]
+
+proc droplast[T](ls: seq[T], n: int = 1): seq[T] =
+  return if n > ls.len: @[]
+         elif n < 1: ls
+         else: ls[0 .. <(ls.len - n)]
+
+
 # Lambda
-proc lambda(args: seq[string], body: seq[Atom]): Fun =
-  return Fun(args: args, body: body)
+proc mklambda(args: seq[string], body: seq[Atom], env: Env): Fun =
+  return Fun(args: args, body: body, env: env)
 
 
 
@@ -199,7 +232,7 @@ proc `[]`(obj: Env, key: string): Atom =
   if obj.table.contains(key): return obj.table[key]
   elif obj.outer != nil: return obj.outer[key]
   else:
-    return atom(Error(s: "No such variable: "& key))
+    return err("No such variable: " & key)
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   ##  Set ``key`` in environment to given ``val``.
@@ -221,29 +254,29 @@ template fun_numbers(op: expr, args: openArray[Atom]): stmt =
     of aNumber:
       result = atom(args[0].n)
     of aError: return args[0]
-    else: return atom(Error(s: "Not a number: " & $args[0]))
+    else: return err("Not a number: " & $args[0])
 
   for i in 1..args.high:
     if args[i].kind == aNumber:
       result.n = op(result.n, args[i].n)
     else:
-      return atom(Error(s: "Not a number: " & $args[i]))
+      return err("Not a number: " & $args[i])
 
 template fun_bool(op: expr, args: openArray[Atom]): stmt =
   ##  Template for functions of type op(num1, num2, ...): bool
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
-    return atom(Error(s: "Not a number nor bool: " & $args[0]))
+    return err("Not a number nor bool: " & $args[0])
 
   for i in 1..args.high:
     if args[0].kind == aNumber:
       if args[i].kind == aNumber: result.b = op(args[0].n, args[i].n)
       else:
-        return atom(Error(s: "Not a number: " & $args[i]))
+        return err("Not a number: " & $args[i])
     else:
       if args[i].kind == aBool: result.b = op(args[0].b, args[i].b)
       else:
-        return atom(Error(s: "Not a bool: " & $args[i]))
+        return err("Not a bool: " & $args[i])
 
 proc fun_isBool(args: openArray[Atom]): Atom {.cdecl.} =
   fun_isType(aBool, args)
@@ -271,26 +304,28 @@ proc fun_min(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "Abs needs 1 argument"))
-  if args[0].kind == aNumber:
-    return atom(abs(args[0].n))
-  else:
-    return atom(Error(s: "Not a number: " & $args[0]))
+    return err("Abs needs 1 argument")
+  return case args[0].kind:
+    of aNumber: atom(abs(args[0].n))
+    of aError: args[0]
+    else: err("Not a number: " & $args[0])
 
 proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "Round needs 1 argument"))
-  if args[0].kind == aNumber:
-    return atom(number((args[0].n).toInt))
-  else:
-    return atom(Error(s: "Not a number: " & $args[0]))
+    return err("Round needs 1 argument")
+  return case args[0].kind:
+    of aNumber: atom(number((args[0].n).toInt))
+    of aError: args[0]
+    else: err("Not a number: " & $args[0])
 
 proc fun_mod(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom(Error(s: "Mod needs 2 arguments"))
+    return err("Mod needs 2 arguments")
   for i in args:
-    if i.kind != aNumber:
-      return atom(Error(s: "Not a number: " & $i))
+    case i.kind:
+      of aNumber: continue
+      of aError: return i
+      else: return err("Not a number: " & $i)
   let
     a = fun_divide([args[0], args[1]])
     b = fun_round([a])
@@ -303,7 +338,7 @@ proc odd_or_even(chk: NumberBoolFunc, args: openArray[Atom]): Atom =
         if chk( fun_mod([i, atom(number(2))]).n, atom(number(0)).n ):
           return atom(false)
       of aError: return i
-      else: return atom(Error(s: "Not a number: " & $i))
+      else: return err("Not a number: " & $i)
   return atom(true)
 
 proc fun_odd(args: openArray[Atom]): Atom {.cdecl.} =
@@ -332,7 +367,7 @@ proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom(Error(s: "Cons requires 2 arguments: atom and list"))
+    return err("Cons requires 2 arguments: atom and list")
   let elem = args[0]
   let lst  = args[1]
   return case lst.kind:
@@ -341,30 +376,30 @@ proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
         of aSymbol, aNumber, aBool, aFun:
           cons(elem, lst)
         of aError: elem
-        else: atom(Error(s: "First argument to `cons` must be either a symbol or a number"))
+        else: err("First argument to `cons` must be either a symbol or a number")
     else:
-      atom(Error(s: "Second argument to `cons` must be a list"))
+      err("Second argument to `cons` must be a list")
 
 proc fun_car(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Car needs 1 argument"))
+    return err("Car needs 1 argument")
   case args[0].kind:
     of aList: return car(atom(args[0].list))
     of aError: return args[0]
-    else: return atom(Error(s: "Car argument must be of list type"))
+    else: return err("Car argument must be of list type")
 
 proc fun_cdr(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Cdr needs 1 argument"))
+    return err("Cdr needs 1 argument")
   case args[0].kind:
     of aList: return cdr(atom(args[0].list))
     of aError: return args[0]
-    else: return atom(Error(s: "Cdr argument must be of list type"))
+    else: return err("Cdr argument must be of list type")
   
 
 proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Len needs 1 argument"))
+    return err("Len needs 1 argument")
   if args[0].kind == aList:
     return atom(number(len(args[0].list)))
   else:
@@ -372,7 +407,7 @@ proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "null? requires 1 argument"))
+    return err("null? requires 1 argument")
   let fst = args[0]
   return case fst.kind:  # TODO refactor everywhere like this
     of aList: atom(fst.list.len <= 0)
@@ -382,13 +417,10 @@ proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Echo requires 1 argument"))
+    return err("Echo requires 1 argument")
   let fst = args[0]
-  return case fst.kind:
-    of aError: fst
-    else:
-      echo $fst
-      fst
+  echo $fst
+  return fst
 
 proc quit_with(errorcode: int, newline = false) =
   if newline:
@@ -447,23 +479,50 @@ var global_env = newEnv([
 
 proc eval(x: Atom, env: Env = global_env): Atom # Forward declaration
 
-proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
-  if fun.body.len < 1:  # built-in function
-    return fun.builtin(args)
-  elif args.len == fun.args.len:  # def function
-    var params = newEnv([])
-    for i in 0..args.high:  # Eval each argument
-      case args[i].kind:
-        # DO NOT eval lists given as params |16.0518.2231|
-        # Broke my head while trying to figure this out
-        # Quoted lists passed into functions were eval'd as func's
-        of aList: params[fun.args[i]] = args[i]
-        else: params[fun.args[i]] = eval(args[i], env)
-    let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
-    return eval(body, Env(table: params.table, outer: env))
-  else:
-    return atom(Error(s: "Invalid arguments count: " & $args.len & " instead of " & $fun.args.len))
+proc eval_params(fun: Fun, args: seq[Atom], outer_env: Env): Env =
+  result = newEnv([])
+  result.outer = fun.env
+  # add aFun env to params (closure)
+  # for key in fun.env.table.keys:
+  #   result[key] = fun.env[key]
+  # add args to params
+  for i in 0..args.high:  # Eval each argument
+    case args[i].kind:
+      # DO NOT eval lists given as params |16.0518.2231|
+      # Broke my head while trying to figure this out
+      # Quoted lists passed into functions were eval'd as func's
+      of aList: result[fun.args[i]] = args[i]
+      else: result[fun.args[i]] = eval(args[i], outer_env)
 
+proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
+  # built-in function
+  if fun.body.len < 1:
+    return fun.builtin(args)
+
+  # def function
+  return case cmp(args.len, fun.args.len):
+    # partial application
+    # returns a new function, which has some of its args filled
+    of -1:
+      let ngiven = args.len
+      let argsleft = fun.args.drop(ngiven)
+      let params = eval_params(fun, args, env)
+      atom(mklambda(argsleft, fun.body, params))
+    
+    # normal call
+    of 0:
+      let params = eval_params(fun, args, env)
+      let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
+      # eval(body, Env(table: params.table, outer: env))
+      eval(body, params)
+
+    # curried function call
+    else:
+      let cfun = fun.call(args.take(fun.args.len), env)
+      let leftover = args.drop(fun.args.len)
+      case cfun.kind:
+        of aFun: cfun.f.call(leftover, env)
+        else: eval(atom(@[cfun].concat(leftover)), env)
 
 
 # PARSE #
@@ -501,7 +560,7 @@ proc read(tokens: var seq[string]): Atom =
   ##
   ##  ``Return`` parsed ``Atom``.
   if tokens.len == 0: # no tokens
-    # return atom(Error(s: "ERROR: Unexpected EOF while reading"))
+    # return err("ERROR: Unexpected EOF while reading")
     return atom(false)
 
   var token = tokens.pop() # take next token
@@ -514,7 +573,7 @@ proc read(tokens: var seq[string]): Atom =
         discard tokens.pop()
         return
       result.list.add(tokens.read()) # read list items
-    return atom(Error(s: "Missing )"))
+    return err("Missing )")
 
   if token == "'(":
     result = atom()
@@ -527,10 +586,10 @@ proc read(tokens: var seq[string]): Atom =
         discard tokens.pop()
         return
       lst.list.add(tokens.read()) # read list items
-    return atom(Error(s: "Missing )"))
+    return err("Missing )")
 
   elif token == ")":
-    return atom(Error(s: "Unexpected )"))
+    return err("Unexpected )")
 
   else:
     return token.toAtom
@@ -563,7 +622,9 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     return x
 
   of aSymbol: # variable reference
-    return if is_quoted(x): atom(x.s[1..^1]) else: env[x.s]
+    return if is_comment(x): atom(false)
+           elif is_quoted(x): atom(x.s[1..^1])
+           else: env[x.s]
 
   of aFun:
     return x
@@ -583,18 +644,21 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     case xcar.kind
     of aSymbol: # special form
 
-      if xcar.s == "quote":  # (quote exp)
+      # (quote exp)
+      if xcar.s == "quote":
         return x.quote
 
-      if xcar.s == "list": # (list exp)
+      # (list exp)
+      elif xcar.s == "list":
         var list: seq[Atom] = @[]
         for i in xcdr:
           list.add(eval(i, env))
         return atom(list)
 
-      if xcar.s == "if": # (if test conseq alt)
+      # (if test conseq alt)
+      elif xcar.s == "if":
         if xcdr.len != 3:
-          return atom(Error(s: "If needs 3 arguments"))
+          return err("If needs 3 arguments")
         else:
           let test = eval(xcdr[0], env)
           return case test.kind:
@@ -602,48 +666,78 @@ proc eval(x: Atom, env: Env = global_env): Atom =
               if test.b: eval(xcdr[1], env)
               else: eval(xcdr[2], env)
             of aError: test
-            else: atom(Error(s: "Not a bool: " & $test))
+            else: err("Not a bool: " & $test)
 
-      elif xcar.s == "def": # (def name value)
+      # (def name value)
+      elif xcar.s == "def":
         if xcdr.len != 2:
-          return atom(Error(s: "Def needs 2 arguments"))
+          return err("Def needs 2 arguments")
         let arg = xcdr[0]
         let value = xcdr[1]
         case arg.kind:
+        # (def var value)
         of aSymbol:
           if not is_quoted(arg):
             env[arg.s] = eval(xcdr[1], env)
             return env[arg.s]
           else:
-            return atom(Error(s: "Cannot assign to quoted symbol"))
+            return err("Cannot assign to quoted symbol")
+        # (def (fun-name args) body)
         of aList:
           let name = arg.car
           let arglist = arg.cdr
           if is_valid_id(name):
             case value.kind:
               of aList:
-                env[name.s] = atom(lambda(arglist.toStrList, value.list))
+                env[name.s] = atom(mklambda(arglist.toStrList, value.list, env))
                 return env[name.s]
-              else: return atom(Error(s: "Function body should be a list of s-expressions"))
-          else: return atom(Error(s: "Invalid id: " & $name))
+              else: return err("Function body must be a list of s-expressions")
+          else: return err("Invalid id: " & $name)
         else:
-          return atom(Error(s: "Def defines either vals or functions"))
+          return err("Def defines either vals or functions")
 
-      elif xcar.s == "lambda" or xcar.s == "\\": # (lambda (name args...) body)
+      # (lambda (name args...) body)
+      elif xcar.s == "lambda" or xcar.s == "\\":
         if xcdr.len != 2:
-          return atom(Error(s: "Lambda needs 2 arguments: (lambda (args...) body)"))
+          return err("Lambda needs 2 arguments: (lambda (args...) body)")
         let arglist = xcdr[0]
         let body = xcdr[1]
-        case arglist.kind:
+        return case arglist.kind:
         of aList:
             case body.kind:
-              of aList:
-                return atom(lambda(arglist.toStrList, body.list))
-              else: return atom(Error(s: "Function body should be a list of s-expressions"))
-        else:
-          return atom(Error(s: "Lambda arguments error: Must be list"))
+              of aList: atom(mklambda(arglist.toStrList, body.list, env))
+              else: err("Function body must be a list of s-expressions")
+        else: err("Lambda arguments error: Must be list")
 
-      else: # (fun arg...)
+      # (fn arg body) lambda of one argument
+      elif xcar.s == "fn" or xcar.s == "fun":
+        if xcdr.len != 2:
+          return err("Fn/Fun requires 2 arguments: (fn arg body)")
+        let arg = xcdr[0]
+        let body = xcdr[1]
+        return case body.kind:
+        of aList: atom(mklambda(atom([arg]).toStrList, body.list, env))
+        else: err("Fn body must be a list of s-expressions")
+
+      # (do (expr1) (expr2) ...)
+      # (begin (expr1) (expr2) ...)
+      # sequential evaluation
+      elif xcar.s == "do" or xcar.s == "begin":
+        if xcdr.len < 1:
+          return atom(false)  # empty (do) returns NIL
+        # check if we have only sexps...
+        for sexp in xcdr.items:
+          case sexp.kind:
+            of aList: continue
+            else: return err("Not a S-exp: " & $sexp)
+        # let's rock
+        var local_env = newEnv([])  # we'll add to it as we traverse the expressions
+        local_env.outer = env
+        for sexp in xcdr:
+          result = eval(sexp, local_env)
+
+      # (customfun arg...)
+      else:
         let fun = eval(xcar, env)
         var args: seq[Atom] = @[]
         let cdr = x.cdr
@@ -666,10 +760,10 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       case fst.kind:
         of aFun: return fst.f.call(xcdr, env)
         of aError: return fst
-        else: return atom(Error(s: "Not a function: " & $fst))
+        else: return err("Not a function: " & $fst)
 
     else:
-      return atom(Error(s: "Invalid function name: " & $xcar))
+      return err("Invalid function name: " & $xcar)
 
 
 
