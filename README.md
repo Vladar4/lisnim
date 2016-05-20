@@ -121,8 +121,8 @@ Notes
 
 ```
 (def (f x) \
-  (do
-    (def (g x) (+ x 1))
+  (do \
+    (def (g x) (+ x 1)) \
     (g x)))
  ; `g` is visible inside `f`, but not outside
 ```
