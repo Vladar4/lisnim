@@ -60,8 +60,8 @@ Example
 ```
 (def (factorial n) (if (<= n 1) 1 (\* n (factorial (- n 1)))))
 
-(def (map f ls)  (if (nil? ls) \
-  '() \
+(def (map f ls)  (if (nil? ls)
+  '()
   (cons (f (car ls)) (map f (cdr ls)))))
 
 (echo (map (fn x (+ x 1)) '(1 2 3 4)))   ; output: ( 2 3 4 5 )
@@ -69,9 +69,9 @@ Example
 (fn () (+ 5 6))   ; returns anonymous function 'fn ()'
 ((fn () (+ 5 6))) ; anonymous function application
 
-(def somefun \
-  (fn x \
-    (fn y \
+(def somefun
+  (fn x
+    (fn y
       (+ x y))))  ; curried function
 
 (somefun)         ; => fn (x) -> fn (y) partial application (though 'fn (y)' not showed)
@@ -103,14 +103,17 @@ To run on Windows:
 File
 ----
 
-File should consist of individual expressions, one per line.
+File, which `./lis` takes as argument may contain S-expressions and comments, that start with ; and span till the end of line.
+Behind the scenes all the S-expressions in the file are wrapped in (do ...) construct for sequential evaluation.
 
 `(def (plus1 n) (+ n 1))`
 
-Or you can use \\ before line break to span a single expression on multiple lines.
+~~Or you can use \\ before line break to span a single expression on multiple lines.~~
+
+Now you can use line break anywhere a space can be used. No need to use \\&lt;LF&gt; to make an S-expression multiline.
 
 ```
-(def (plus2 n) \
+(def (plus2 n)
   (+ n 2))
 ```
 
@@ -120,9 +123,9 @@ Notes
 * Nested functions ARE now supported.
 
 ```
-(def (f x) \
-  (do \
-    (def (g x) (+ x 1)) \
+(def (f x)
+  (do
+    (def (g x) (+ x 1))
     (g x)))
  ; `g` is visible inside `f`, but not outside
 ```

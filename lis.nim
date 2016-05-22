@@ -765,26 +765,35 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     else:
       return err("Invalid function name: " & $xcar)
 
+# UTILITY #
 
+proc remove_comments(s: seq[string]): seq[string] =
+  ## Does not account for ; being inside strings,
+  ## because there are no strings for now
+  result = @[]
+  for i in s:
+    let semi = i.find(';') # semicolon position in line, if any
+    result.add(if semi > -1: i[0 .. <semi] else: i)
 
 # MAIN #
 
 proc main() =
-  for i in 1..paramCount():
-    try:
-      let ls = readFile(paramStr(i)).replace("\\\10", "").split(NewLines)
-      for line in ls:
-        discard eval(parse(line))
-    except IOError:
-      echo "IO error while reading from file: " & paramStr(i)
-      quit_with(1)
+  if paramCount() > 0:
+    for i in 1..paramCount():
+      try:
+        let ls = readFile(paramStr(i)).split(NewLines).remove_comments().join()
+        let wrapped = "(do " & ls & ")"
+        discard eval(parse(wrapped))
+      except IOError:
+        echo "IO error while reading from file: " & paramStr(i)
 
-  while true:
-    write(stdout, "lisnim> ")
-    try:
-      writeLine(stdout, eval(parse(readLine(stdin))))
-    except IOError:
-      quit_with(0, true)
+  else:  # paramCount() == 0
+    while true:
+      write(stdout, "lisnim> ")
+      try:
+        writeLine(stdout, eval(parse(readLine(stdin))))
+      except IOError:
+        quit_with(0, true)
 
 
 main()
