@@ -21,10 +21,8 @@
 
 # Plainly marked altered version by Esgorhannoth esgorhannoth{atsign}gmail{dotcom} : |16.0516.1023|
 
-
 import
   os, parseutils, rationals, strutils, tables
-
 
 
 # NUMBER #
@@ -34,7 +32,6 @@ type
 
 template number(i: float): Number = toRational(i, high(int32))
 template number[T](i: T): Number = toRational(i)
-
 
 
 # ENV, BUILTIN, ERROR, FUN, ATOM #
@@ -69,14 +66,11 @@ type
 
   NumberBoolFunc = proc(a, b: Number): bool
 
+
 # TODO: factor out atom(Error)'s
 
-# ATOM #
 
-proc reverse(input: seq[Atom]): seq[Atom] {.noSideEffect.} =
-  result = @[]
-  for i in countdown(input.high, 0):
-    result.add(input[i])
+# ATOM #
 
 template atom(): Atom = Atom(kind: aList, list: @[])
 template atom(val: seq[Atom]): Atom = Atom(kind: aList, list: val)
@@ -90,6 +84,7 @@ proc atom(builtin: Builtin): Atom =
   atom(Fun(args: @[], body: @[], builtin: builtin))
 proc atom(args: seq[string], body: seq[Atom]): Atom =
   atom(Fun(args: args, body: body))
+
 
 proc `$`(obj: Atom): string =
   ##  Convert ``Atom`` to ``string``.
@@ -111,36 +106,52 @@ proc `$`(obj: Atom): string =
 
 
 # For NumberBoolFunc
+
 proc `==`(a, b: Number): bool =
   return rationals.`==`(a, b)
+
 
 proc `!=`(a, b: Number): bool =
   return not rationals.`==`(a, b)
 
 
 # Error procs
+
 proc `$`(obj: Error) : string =
   return "ERROR: " & obj.s
+
 
 proc write(err: Error): Error =
   writeLine(stderr, $err)
   return err
 
+
 # Symbol procs
+
 proc is_quoted(a: Atom): bool =
   case a.kind:
   of aSymbol: return a.s[0] == '\''
   else: return false
 
+
 proc is_valid_id(a: Atom): bool =
   return a.kind == aSymbol and not is_quoted(a)
 
+
 # List procs
+
+proc reverse(input: seq[Atom]): seq[Atom] {.noSideEffect.} =
+  result = @[]
+  for i in countdown(input.high, 0):
+    result.add(input[i])
+
+
 proc cons(elem, lst: Atom): Atom =
   ## `cons` an element to the beginning of a list
   var rev = lst.list.reverse()
   rev.add(elem)
-  return atom(rev.reverse())
+  return atom rev.reverse()
+
 
 proc car(x: Atom): Atom =
   ##  ``Return`` head of ``Atom.list``.
@@ -151,6 +162,7 @@ proc car(x: Atom): Atom =
     of aError: x
     else: atom(Error(s: "Not a list: " & $x))
 
+
 proc cdr(x: Atom): Atom =
   ##  ``Return`` tail of ``Atom.list``.
   case x.kind:
@@ -160,16 +172,18 @@ proc cdr(x: Atom): Atom =
     of aError: x
     else: atom(Error(s: "Not a list: " & $x))
 
+
 proc quote(x: Atom): Atom =
   ##  ``Return`` tail of ``x.list`` as list or as single ``Atom``
   ##  (in case of tail's length of 1).
   case x.kind:
     of aList:
       if x.list.len != 2:
-        return atom(Error(s: "Quote requres 1 argument"))
+        return atom Error(s: "Quote requres 1 argument")
       else:
         return x.list[1]
-    else: return atom(Error(s: "Illegal argument for quote"))
+    else: return atom Error(s: "Illegal argument for quote")
+
 
 proc toStrList(a: Atom): seq[string] =
   result = @[]
@@ -181,10 +195,10 @@ proc toStrList(a: Atom): seq[string] =
         else: return @[]
     else: return
 
+
 # Lambda
 proc lambda(args: seq[string], body: seq[Atom]): Fun =
   return Fun(args: args, body: body)
-
 
 
 # ENV #
@@ -193,146 +207,170 @@ proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
   ##  Create new ``Env``.
   Env(table: newTable[string, Atom](pairs), outer: outer)
 
+
 proc `[]`(obj: Env, key: string): Atom =
   ##  Get ``key`` value from environment.
-  let key = key.toLower
+  let key = key.toLowerAscii
   if obj.table.contains(key): return obj.table[key]
   elif obj.outer != nil: return obj.outer[key]
   else:
-    return atom(Error(s: "No such variable: "& key))
+    return atom Error(s: "No such variable: "& key)
+
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   ##  Set ``key`` in environment to given ``val``.
-  obj.table[key.toLower] = val
-
+  obj.table[key.toLowerAscii] = val
 
 
 # GLOBAL_ENV #
 
-template fun_isType(typ: AtomKind, args: openArray[Atom]): stmt =
+template fun_isType(typ: AtomKind, args: openArray[Atom]): untyped =
   ##  Template for function of type kind(atom): bool.
   for i in args:
-    if i.kind != typ: return atom(false)
-  return atom(true)
+    if i.kind != typ: return atom false
+  return atom true
 
-template fun_numbers(op: expr, args: openArray[Atom]): stmt =
+
+template fun_numbers(op: untyped, args: openArray[Atom]): untyped =
   ##  Template for functions of type op(num1, num2, ...): num.
   case args[0].kind:
     of aNumber:
       result = atom(args[0].n)
     of aError: return args[0]
-    else: return atom(Error(s: "Not a number: " & $args[0]))
+    else: return atom Error(s: "Not a number: " & $args[0])
 
   for i in 1..args.high:
     if args[i].kind == aNumber:
       result.n = op(result.n, args[i].n)
     else:
-      return atom(Error(s: "Not a number: " & $args[i]))
+      return atom Error(s: "Not a number: " & $args[i])
 
-template fun_bool(op: expr, args: openArray[Atom]): stmt =
+
+template fun_bool(op: untyped, args: openArray[Atom]): untyped =
   ##  Template for functions of type op(num1, num2, ...): bool
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
-    return atom(Error(s: "Not a number nor bool: " & $args[0]))
+    return atom Error(s: "Not a number nor bool: " & $args[0])
 
   for i in 1..args.high:
     if args[0].kind == aNumber:
       if args[i].kind == aNumber: result.b = op(args[0].n, args[i].n)
       else:
-        return atom(Error(s: "Not a number: " & $args[i]))
+        return atom Error(s: "Not a number: " & $args[i])
     else:
       if args[i].kind == aBool: result.b = op(args[0].b, args[i].b)
       else:
-        return atom(Error(s: "Not a bool: " & $args[i]))
+        return atom Error(s: "Not a bool: " & $args[i])
+
 
 proc fun_isBool(args: openArray[Atom]): Atom {.cdecl.} =
   fun_isType(aBool, args)
 
+
 proc fun_isNumber(args: openArray[Atom]): Atom {.cdecl.} =
   fun_isType(aNumber, args)
+
 
 proc fun_plus(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`+`, args)
 
+
 proc fun_minus(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`-`, args)
+
 
 proc fun_multiply(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`*`, args)
 
+
 proc fun_divide(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`/`, args)
+
 
 proc fun_max(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`max`, args)
 
+
 proc fun_min(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`min`, args)
 
+
 proc fun_abs(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "Abs needs 1 argument"))
+    return atom Error(s: "Abs needs 1 argument")
   if args[0].kind == aNumber:
-    return atom(abs(args[0].n))
+    return atom abs(args[0].n)
   else:
-    return atom(Error(s: "Not a number: " & $args[0]))
+    return atom Error(s: "Not a number: " & $args[0])
+
 
 proc fun_round(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "Round needs 1 argument"))
+    return atom Error(s: "Round needs 1 argument")
   if args[0].kind == aNumber:
-    return atom(number((args[0].n).toInt))
+    return atom number((args[0].n).toInt)
   else:
-    return atom(Error(s: "Not a number: " & $args[0]))
+    return atom Error(s: "Not a number: " & $args[0])
+
 
 proc fun_mod(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom(Error(s: "Mod needs 2 arguments"))
+    return atom Error(s: "Mod needs 2 arguments")
   for i in args:
     if i.kind != aNumber:
-      return atom(Error(s: "Not a number: " & $i))
+      return atom Error(s: "Not a number: " & $i)
   let
     a = fun_divide([args[0], args[1]])
     b = fun_round([a])
   return atom(a.n - b.n)
+
 
 proc odd_or_even(chk: NumberBoolFunc, args: openArray[Atom]): Atom =
   for i in args:
     case i.kind:
       of aNumber:
         if chk( fun_mod([i, atom(number(2))]).n, atom(number(0)).n ):
-          return atom(false)
+          return atom false
       of aError: return i
-      else: return atom(Error(s: "Not a number: " & $i))
-  return atom(true)
+      else: return atom Error(s: "Not a number: " & $i)
+  return atom true
+
 
 proc fun_odd(args: openArray[Atom]): Atom {.cdecl.} =
   return odd_or_even(`==`, args)
 
+
 proc fun_even(args: openArray[Atom]): Atom {.cdecl.} =
   return odd_or_even(`!=`, args)
+
 
 proc fun_eq(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`==`, args)
 
+
 proc fun_ne(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`!=`, args)
+
 
 proc fun_gt(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`>`, args)
 
+
 proc fun_lt(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`<`, args)
+
 
 proc fun_ge(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`>=`, args)
 
+
 proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
   fun_bool(`<=`, args)
 
+
 proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom(Error(s: "Cons requires 2 arguments: atom and list"))
+    return atom Error(s: "Cons requires 2 arguments: atom and list")
   let elem = args[0]
   let lst  = args[1]
   return case lst.kind:
@@ -341,38 +379,42 @@ proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
         of aSymbol, aNumber, aBool, aFun:
           cons(elem, lst)
         of aError: elem
-        else: atom(Error(s: "First argument to `cons` must be either a symbol or a number"))
+        else: atom(Error(
+          s: "First argument to `cons` must be either a symbol or a number"))
     else:
       atom(Error(s: "Second argument to `cons` must be a list"))
 
+
 proc fun_car(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Car needs 1 argument"))
+    return atom Error(s: "Car needs 1 argument")
   case args[0].kind:
     of aList: return car(atom(args[0].list))
     of aError: return args[0]
-    else: return atom(Error(s: "Car argument must be of list type"))
+    else: return atom Error(s: "Car argument must be of list type")
+
 
 proc fun_cdr(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Cdr needs 1 argument"))
+    return atom Error(s: "Cdr needs 1 argument")
   case args[0].kind:
     of aList: return cdr(atom(args[0].list))
     of aError: return args[0]
-    else: return atom(Error(s: "Cdr argument must be of list type"))
-  
+    else: return atom Error(s: "Cdr argument must be of list type")
+
 
 proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Len needs 1 argument"))
+    return atom Error(s: "Len needs 1 argument")
   if args[0].kind == aList:
-    return atom(number(len(args[0].list)))
+    return atom number(len(args[0].list))
   else:
-    return atom(number(1))
+    return atom number(1)
+
 
 proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom(Error(s: "null? requires 1 argument"))
+    return atom Error(s: "null? requires 1 argument")
   let fst = args[0]
   return case fst.kind:  # TODO refactor everywhere like this
     of aList: atom(fst.list.len <= 0)
@@ -380,9 +422,10 @@ proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
     of aError: fst
     else: atom(false)
 
+
 proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom(Error(s: "Echo requires 1 argument"))
+    return atom Error(s: "Echo requires 1 argument")
   let fst = args[0]
   return case fst.kind:
     of aError: fst
@@ -390,62 +433,64 @@ proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
       echo $fst
       fst
 
+
 proc quit_with(errorcode: int, newline = false) =
   if newline:
     echo ""
   echo "Good bye!"
   quit(errorcode)
 
+
 proc fun_quit(args: openArray[Atom]): Atom {.cdecl.} =
   ## Now we can exit properly. Yay!
   if args.len > 0:
     if args[0].kind == aNumber: # error code
       quit_with(args[0].n.toInt())
-      return atom(false)
+      return atom false
   quit_with(0)
-  return atom(false)
+  return atom false
 
 
 var global_env = newEnv([
-  ("quit", atom(fun_quit)),
-  ("exit", atom(fun_quit)),
-  ("t", atom(true)),
-  ("nil", atom(false)),
-  ("bool?", atom(fun_isBool)),
-  ("number?", atom(fun_isNumber)),
-  ("pi", atom(number(3.141592653589793))),
-  ("e", atom(number(2.718281828459045))),
-  ("+", atom(fun_plus)),
-  ("-", atom(fun_minus)),
-  ("*", atom(fun_multiply)),
-  ("/", atom(fun_divide)),
-  ("max", atom(fun_max)),
-  ("min", atom(fun_min)),
-  ("abs", atom(fun_abs)),
-  ("round", atom(fun_round)),
-  ("mod", atom(fun_mod)),
-  ("odd?", atom(fun_odd)),
-  ("even?", atom(fun_even)),
-  ("=", atom(fun_eq)),
-  ("!=", atom(fun_ne)),
-  (">", atom(fun_gt)),
-  ("<", atom(fun_lt)),
-  (">=", atom(fun_ge)),
-  ("<=", atom(fun_le)),
-  ("cons", atom(fun_cons)),
-  ("car", atom(fun_car)),
-  ("cdr", atom(fun_cdr)),
-  ("len", atom(fun_len)),
-  ("null?", atom(fun_is_null)),
-  ("nil?", atom(fun_is_null)),
-  ("echo", atom(fun_echo)),
+  ("quit",    atom fun_quit),
+  ("exit",    atom fun_quit),
+  ("t",       atom true),
+  ("nil",     atom false),
+  ("bool?",   atom fun_isBool),
+  ("number?", atom fun_isNumber),
+  ("pi",      atom number 3.141592653589793),
+  ("e",       atom number 2.718281828459045),
+  ("+",       atom fun_plus),
+  ("-",       atom fun_minus),
+  ("*",       atom fun_multiply),
+  ("/",       atom fun_divide),
+  ("max",     atom fun_max),
+  ("min",     atom fun_min),
+  ("abs",     atom fun_abs),
+  ("round",   atom fun_round),
+  ("mod",     atom fun_mod),
+  ("odd?",    atom fun_odd),
+  ("even?",   atom fun_even),
+  ("=",       atom fun_eq),
+  ("!=",      atom fun_ne),
+  (">",       atom fun_gt),
+  ("<",       atom fun_lt),
+  (">=",      atom fun_ge),
+  ("<=",      atom fun_le),
+  ("cons",    atom fun_cons),
+  ("car",     atom fun_car),
+  ("cdr",     atom fun_cdr),
+  ("len",     atom fun_len),
+  ("null?",   atom fun_is_null),
+  ("nil?",    atom fun_is_null),
+  ("echo",    atom fun_echo),
   ])
-
 
 
 # FUN #
 
 proc eval(x: Atom, env: Env = global_env): Atom # Forward declaration
+
 
 proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
   if fun.body.len < 1:  # built-in function
@@ -462,8 +507,9 @@ proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
     let body = if fun.body.len > 1: atom(fun.body) else: fun.body[0]
     return eval(body, Env(table: params.table, outer: env))
   else:
-    return atom(Error(s: "Invalid arguments count: " & $args.len & " instead of " & $fun.args.len))
-
+    return atom Error(
+      s: "Invalid arguments count: " & $args.len &
+      " instead of " & $fun.args.len)
 
 
 # PARSE #
@@ -501,8 +547,8 @@ proc read(tokens: var seq[string]): Atom =
   ##
   ##  ``Return`` parsed ``Atom``.
   if tokens.len == 0: # no tokens
-    # return atom(Error(s: "ERROR: Unexpected EOF while reading"))
-    return atom(false)
+    # return atom Error(s: "ERROR: Unexpected EOF while reading")
+    return atom false
 
   var token = tokens.pop() # take next token
 
@@ -514,7 +560,7 @@ proc read(tokens: var seq[string]): Atom =
         discard tokens.pop()
         return
       result.list.add(tokens.read()) # read list items
-    return atom(Error(s: "Missing )"))
+    return atom Error(s: "Missing )")
 
   if token == "'(":
     result = atom()
@@ -527,10 +573,10 @@ proc read(tokens: var seq[string]): Atom =
         discard tokens.pop()
         return
       lst.list.add(tokens.read()) # read list items
-    return atom(Error(s: "Missing )"))
+    return atom Error(s: "Missing )")
 
   elif token == ")":
-    return atom(Error(s: "Unexpected )"))
+    return atom Error(s: "Unexpected )")
 
   else:
     return token.toAtom
@@ -551,7 +597,6 @@ proc parse(input: string): Atom =
   tokens.read()
 
 
-
 # EVAL #
 
 proc eval(x: Atom, env: Env = global_env): Atom =
@@ -570,7 +615,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 
   of aError:
     discard x.e.write
-    return atom(false)
+    return atom false
 
   of aList:
     if x.list.len < 1:
@@ -580,6 +625,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       of aList:
         x.cdr.list
       else: @[]
+
     case xcar.kind
     of aSymbol: # special form
 
@@ -590,11 +636,11 @@ proc eval(x: Atom, env: Env = global_env): Atom =
         var list: seq[Atom] = @[]
         for i in xcdr:
           list.add(eval(i, env))
-        return atom(list)
+        return atom list
 
       if xcar.s == "if": # (if test conseq alt)
         if xcdr.len != 3:
-          return atom(Error(s: "If needs 3 arguments"))
+          return atom Error(s: "If needs 3 arguments")
         else:
           let test = eval(xcdr[0], env)
           return case test.kind:
@@ -606,7 +652,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 
       elif xcar.s == "def": # (def name value)
         if xcdr.len != 2:
-          return atom(Error(s: "Def needs 2 arguments"))
+          return atom Error(s: "Def needs 2 arguments")
         let arg = xcdr[0]
         let value = xcdr[1]
         case arg.kind:
@@ -615,7 +661,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
             env[arg.s] = eval(xcdr[1], env)
             return env[arg.s]
           else:
-            return atom(Error(s: "Cannot assign to quoted symbol"))
+            return atom Error(s: "Cannot assign to quoted symbol")
         of aList:
           let name = arg.car
           let arglist = arg.cdr
@@ -624,24 +670,30 @@ proc eval(x: Atom, env: Env = global_env): Atom =
               of aList:
                 env[name.s] = atom(lambda(arglist.toStrList, value.list))
                 return env[name.s]
-              else: return atom(Error(s: "Function body should be a list of s-expressions"))
-          else: return atom(Error(s: "Invalid id: " & $name))
+              else:
+                return atom Error(
+                  s: "Function body should be a list of s-expressions")
+          else:
+            return atom Error(s: "Invalid id: " & $name)
         else:
-          return atom(Error(s: "Def defines either vals or functions"))
+          return atom Error(s: "Def defines either vals or functions")
 
       elif xcar.s == "lambda" or xcar.s == "\\": # (lambda (name args...) body)
         if xcdr.len != 2:
-          return atom(Error(s: "Lambda needs 2 arguments: (lambda (args...) body)"))
+          return atom Error(
+            s: "Lambda needs 2 arguments: (lambda (args...) body)")
         let arglist = xcdr[0]
         let body = xcdr[1]
         case arglist.kind:
         of aList:
             case body.kind:
               of aList:
-                return atom(lambda(arglist.toStrList, body.list))
-              else: return atom(Error(s: "Function body should be a list of s-expressions"))
+                return atom lambda(arglist.toStrList, body.list)
+              else:
+                return atom Error(
+                  s: "Function body should be a list of s-expressions")
         else:
-          return atom(Error(s: "Lambda arguments error: Must be list"))
+          return atom Error(s: "Lambda arguments error: Must be list")
 
       else: # (fun arg...)
         let fun = eval(xcar, env)
@@ -666,31 +718,33 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       case fst.kind:
         of aFun: return fst.f.call(xcdr, env)
         of aError: return fst
-        else: return atom(Error(s: "Not a function: " & $fst))
+        else: return atom Error(s: "Not a function: " & $fst)
 
     else:
-      return atom(Error(s: "Invalid function name: " & $xcar))
+      return atom Error(s: "Invalid function name: " & $xcar)
 
 
+when isMainModule:
 
-# MAIN #
+  # MAIN #
 
-proc main() =
-  for i in 1..paramCount():
-    try:
-      let ls = readFile(paramStr(i)).replace("\\\10", "").split(NewLines)
-      for line in ls:
-        discard eval(parse(line))
-    except IOError:
-      echo "IO error while reading from file: " & paramStr(i)
-      quit_with(1)
+  proc main() =
+    for i in 1..paramCount():
+      try:
+        let ls = readFile(paramStr(i)).replace("\\\10", "").split(NewLines)
+        for line in ls:
+          discard eval(parse(line))
+      except IOError:
+        echo "IO error while reading from file: " & paramStr(i)
+        quit_with(1)
 
-  while true:
-    write(stdout, "lisnim> ")
-    try:
-      writeLine(stdout, eval(parse(readLine(stdin))))
-    except IOError:
-      quit_with(0, true)
+    while true:
+      write(stdout, "lisnim> ")
+      try:
+        writeLine(stdout, eval(parse(readLine(stdin))))
+      except IOError:
+        quit_with(0, true)
 
 
-main()
+  main()
+
