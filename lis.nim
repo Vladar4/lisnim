@@ -884,10 +884,7 @@ when isMainModule:
     for i in 1..paramCount():
       try:
         let input = readFile(paramStr(i)).split(NewLines).sanitize().join()
-        echo repr global_env.table
         discard eval parse("(do " & input & ")")
-        echo "\n\n\n\n"
-        echo repr global_env.table
       except IOError:
         echo "IO error while reading from file: " & paramStr(i)
         quit_with(1)
