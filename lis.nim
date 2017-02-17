@@ -878,13 +878,34 @@ when isMainModule:
         result.add line
 
 
+  iterator expressions(input: string): string =
+    var
+      start = 0
+      level = 0
+    for i in 0..input.high:
+      case input[i]:
+      of '(':
+        if level < 1:
+          start = i
+        inc level
+      of ')':
+        if level < 1:
+          echo "ERROR: Unexpected )"
+        dec level
+        if level < 1:
+          yield input[start..i]
+      else:
+        discard
+
+
   # MAIN #
 
   proc main() =
     for i in 1..paramCount():
       try:
         let input = readFile(paramStr(i)).split(NewLines).sanitize().join()
-        discard eval parse("(do " & input & ")")
+        for line in input.expressions:
+          discard eval parse(line)
       except IOError:
         echo "IO error while reading from file: " & paramStr(i)
         quit_with(1)
