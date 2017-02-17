@@ -23,7 +23,8 @@
 # Esgorhannoth esgorhannoth@gmail.com
 
 import
-  os, parseutils, rationals, sequtils, strutils, tables
+  os, parseutils, rationals, sequtils, tables, unicode
+import strutils except toLower, toUpper
 
 
 # NUMBER #
@@ -89,6 +90,42 @@ proc atom(args: seq[string], body: seq[Atom], env: Env): Atom =
   atom(Fun(args: args, body: body, env: env))
 
 
+# Symbol procs
+
+proc is_comment(a: Atom): bool =
+  return case a.kind:
+    of aSymbol: a.s[0] == ';'
+    else: false
+
+
+proc is_quoted(a: Atom): bool =
+  return case a.kind:
+  of aSymbol:
+    a.s[0] == '\''
+  else:
+    false
+
+
+proc is_string(a: Atom): bool =
+  return case a.kind:
+  of aSymbol:
+    (a.s[0] == '\"') and (a.s[^1] == '\"')
+  else:
+    false
+
+
+proc str_strip(a: Atom): string =
+  ## Strip quotes.
+  if a.is_string:
+    a.s[1..^2]
+  else:
+    ""
+
+
+proc is_valid_id(a: Atom): bool =
+  return a.kind == aSymbol and not is_quoted(a)
+
+
 proc `$`(obj: Atom): string =
   ##  Convert ``Atom`` to ``string``.
   case obj.kind
@@ -102,7 +139,11 @@ proc `$`(obj: Atom): string =
       i = obj.n.toInt
     if f - i.float != 0: return $f
     else: return $i
-  of aSymbol: return obj.s                    # Symbol
+  of aSymbol:                                 # Symbol
+    if obj.is_string:
+      return obj.str_strip()
+    else:
+      return obj.s
   of aBool: return if obj.b: "T" else: "NIL"  # Boolean
   of aFun:                                    # Function
     if obj.f.body.len > 0:
@@ -135,26 +176,6 @@ proc `$`(obj: Error) : string =
 proc write(err: Error): Error =
   writeLine(stderr, $err)
   return err
-
-
-# Symbol procs
-
-proc is_quoted(a: Atom): bool =
-  return case a.kind:
-  of aSymbol:
-    a.s[0] == '\''
-  else:
-    false
-
-
-proc is_comment(a: Atom): bool =
-  return case a.kind:
-    of aSymbol: a.s[0] == ';'
-    else: false
-
-
-proc is_valid_id(a: Atom): bool =
-  return a.kind == aSymbol and not is_quoted(a)
 
 
 # List procs
@@ -258,7 +279,7 @@ proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
 
 proc `[]`(obj: Env, key: string): Atom =
   ##  Get ``key`` value from environment.
-  let key = key.toLowerAscii
+  let key = key.toLower()
   return if obj.table.contains(key): obj.table[key]
          elif obj.outer != nil: obj.outer[key]
          else: atom error "No such variable: " & key
@@ -266,7 +287,7 @@ proc `[]`(obj: Env, key: string): Atom =
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   ##  Set ``key`` in environment to given ``val``.
-  obj.table[key.toLowerAscii] = val
+  obj.table[key.toLower] = val
 
 
 # GLOBAL_ENV #
@@ -424,7 +445,7 @@ proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom error "Cons requires 2 arguments: atom and list"
+    return atom error "Cons needs 2 arguments: atom and list"
   let elem = args[0]
   let lst  = args[1]
   return case lst.kind:
@@ -475,7 +496,7 @@ proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom error "null? requires 1 argument"
+    return atom error "null? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
   of aList:
@@ -490,10 +511,81 @@ proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom error "Echo requires 1 argument"
+    return atom error "echo needs 1 argument"
   let fst = args[0]
   echo $fst
   return fst
+
+
+proc fun_capitalize(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "capitalize needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.str_strip().title()
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_upcase(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "upcase needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.s.toUpper()
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_downcase(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "downcase needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.s.toLower()
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_length(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "length needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom number fst.str_strip.runeLen
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_char(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 2:
+    return atom error "char needs 2 arguments"
+  let fst = args[0]
+  if fst.is_string:
+    let str = fst.str_strip()
+    if args[1].kind == aNumber:
+      let idx = args[1].n.toInt
+      if (idx >= 0) and (idx < str.len):
+        return atom str.toRunes[idx].toUtf8
+      else:
+        return atom error "Out of bounds: " & $idx
+    else:
+      return atom error "Not a number: " & $args[1]
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_format(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len < 1:
+    return atom error "format needs 1 or more arguments"
+  let fst = args[0]
+  if fst.is_string:
+    var subs: seq[string] = @[]
+    for i in 1..args.high:
+      subs.add $args[i]
+    return atom (fst.str_strip() % subs)
+  else:
+    return atom error "Not a string: " & $fst
 
 
 proc quit_with(errorcode: int, newline = false) =
@@ -514,38 +606,45 @@ proc fun_quit(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 var global_env = newEnv([
-  ("quit",    atom fun_quit),
-  ("exit",    atom fun_quit),
-  ("t",       atom true),
-  ("nil",     atom false),
-  ("bool?",   atom fun_isBool),
-  ("number?", atom fun_isNumber),
-  ("pi",      atom number 3.141592653589793),
-  ("e",       atom number 2.718281828459045),
-  ("+",       atom fun_plus),
-  ("-",       atom fun_minus),
-  ("*",       atom fun_multiply),
-  ("/",       atom fun_divide),
-  ("max",     atom fun_max),
-  ("min",     atom fun_min),
-  ("abs",     atom fun_abs),
-  ("round",   atom fun_round),
-  ("mod",     atom fun_mod),
-  ("odd?",    atom fun_odd),
-  ("even?",   atom fun_even),
-  ("=",       atom fun_eq),
-  ("!=",      atom fun_ne),
-  (">",       atom fun_gt),
-  ("<",       atom fun_lt),
-  (">=",      atom fun_ge),
-  ("<=",      atom fun_le),
-  ("cons",    atom fun_cons),
-  ("car",     atom fun_car),
-  ("cdr",     atom fun_cdr),
-  ("len",     atom fun_len),
-  ("null?",   atom fun_is_null),
-  ("nil?",    atom fun_is_null),
-  ("echo",    atom fun_echo),
+  ("quit",      atom fun_quit),
+  ("exit",      atom fun_quit),
+  ("t",         atom true),
+  ("nil",       atom false),
+  ("bool?",     atom fun_isBool),
+  ("number?",   atom fun_isNumber),
+  ("pi",        atom number 3.141592653589793),
+  ("e",         atom number 2.718281828459045),
+  ("+",         atom fun_plus),
+  ("-",         atom fun_minus),
+  ("*",         atom fun_multiply),
+  ("/",         atom fun_divide),
+  ("max",       atom fun_max),
+  ("min",       atom fun_min),
+  ("abs",       atom fun_abs),
+  ("round",     atom fun_round),
+  ("mod",       atom fun_mod),
+  ("odd?",      atom fun_odd),
+  ("even?",     atom fun_even),
+  ("=",         atom fun_eq),
+  ("!=",        atom fun_ne),
+  (">",         atom fun_gt),
+  ("<",         atom fun_lt),
+  (">=",        atom fun_ge),
+  ("<=",        atom fun_le),
+  ("cons",      atom fun_cons),
+  ("car",       atom fun_car),
+  ("cdr",       atom fun_cdr),
+  ("len",       atom fun_len),
+  ("null?",     atom fun_is_null),
+  ("nil?",      atom fun_is_null),
+  ("echo",      atom fun_echo),
+  ("capitalize",atom fun_capitalize),
+  ("upcase",    atom fun_upcase),
+  ("downcase",  atom fun_downcase),
+  ("length",    atom fun_length),
+  ("char",      atom fun_char),
+  ("format",    atom fun_format),
+  ("fmt",       atom fun_format),
   ])
 
 
@@ -570,6 +669,7 @@ proc eval_params(fun: Fun, args: seq[Atom], outer_env: Env): Env =
       result[fun.args[i]] = args[i]
     else:
       result[fun.args[i]] = eval(args[i], outer_env)
+
 
 proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
   # built-in function
@@ -604,10 +704,35 @@ proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
 
 # PARSE #
 
+
+template prepareString(str: string): string =
+  str.replace("\\\"", "\"")
+
+
 proc tokenize(input: string): seq[string] {.noSideEffect.} =
   ##  Convert ``input`` string into sequence of tokens.
-  input.replace(
-    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ").splitWhitespace()
+  result = @[]
+  let input = input.replace(
+    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ").replace(
+    "\"", " \" ").replace("\\ \" ", "\\\"")
+
+  var
+    inStr = false
+    seqStr: seq[string] = @[]
+  for token in input.split():
+    if inStr:
+      if token == "\"":
+        inStr = false
+        result.add("\"" & seqStr.join(" ").prepareString() & "\"")
+        seqStr = @[]
+      else:
+        seqStr.add(token)
+    else: # not inStr
+      if token.len > 0:
+        if token == "\"":
+          inStr = true
+        else:
+          result.add(token)
 
 
 proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
@@ -623,7 +748,8 @@ proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
 
 
 proc toAtom(token: string): Atom =
-  ##  Parse single ``token``. If token is not a number, it is a symbol.
+  ##  Parse a single ``token``.
+  ##  If the token is not a number, it is a symbol.
   var
     f: float
     i, num, den: int
@@ -631,6 +757,11 @@ proc toAtom(token: string): Atom =
   elif token.parseInt(i) == token.len: atom(number(i))    # token is int
   elif token.parseFloat(f) == token.len: atom(number(f))  # token is float
   else: Atom(kind: aSymbol, s: token)                     # token is symbol
+
+
+proc addToStrSeq(strSeq: var seq[string], str: string): bool =
+  result = not (str == "\"")
+  if result: strSeq.add(str)
 
 
 proc read(tokens: var seq[string]): Atom =
@@ -641,7 +772,8 @@ proc read(tokens: var seq[string]): Atom =
     # return atom error "ERROR: Unexpected EOF while reading"
     return atom false
 
-  var token = tokens.pop() # take next token
+  var
+    token = tokens.pop() # take next token
 
   if token == "(":
     result = atom()  # start new list
@@ -670,6 +802,12 @@ proc read(tokens: var seq[string]): Atom =
     return atom error "Unexpected )"
 
   else:
+    #echo token
+    if token == "\"":
+      var strSeq: seq[string] = @[]
+      while (tokens.len > 0) and strSeq.addToStrSeq(tokens.pop()):
+        discard
+      token = "\"" & strSeq.join(" ") & "\""
     return token.toAtom
 
 
@@ -701,6 +839,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
   of aSymbol: # variable reference
     return if is_comment(x): atom false
            elif is_quoted(x): atom x.s[1..^1]
+           elif is_string(x): atom x.s
            else: env[x.s]
 
   of aFun:
@@ -797,7 +936,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (fn arg body) lambda of one argument
       elif (xcar.s == "fn") or (xcar.s == "fun"):
         if xcdr.len != 2:
-          return atom error "Fn/Fun requires 2 arguments: (fn arg body)"
+          return atom error "Fn/Fun needs 2 arguments: (fn arg body)"
         let arg = xcdr[0]
         let body = xcdr[1]
         return case body.kind:
