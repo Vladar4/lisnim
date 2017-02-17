@@ -139,6 +139,12 @@ proc write(err: Error): Error =
 
 # Symbol procs
 
+proc is_comment(a: Atom): bool =
+  return case a.kind:
+    of aSymbol: a.s[0] == ';'
+    else: false
+
+
 proc is_quoted(a: Atom): bool =
   return case a.kind:
   of aSymbol:
@@ -147,10 +153,12 @@ proc is_quoted(a: Atom): bool =
     false
 
 
-proc is_comment(a: Atom): bool =
+proc is_string(a: Atom): bool =
   return case a.kind:
-    of aSymbol: a.s[0] == ';'
-    else: false
+  of aSymbol:
+    (a.s[0] == '\"') and (a.s[^1] == '\"')
+  else:
+    false
 
 
 proc is_valid_id(a: Atom): bool =
@@ -571,6 +579,7 @@ proc eval_params(fun: Fun, args: seq[Atom], outer_env: Env): Env =
     else:
       result[fun.args[i]] = eval(args[i], outer_env)
 
+
 proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
   # built-in function
   if fun.body.len < 1:
@@ -604,10 +613,35 @@ proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
 
 # PARSE #
 
-proc tokenize(input: string): seq[string] {.noSideEffect.} =
+
+template prepareString(str: string): string =
+  str.replace("\\\"", "\"")
+
+
+proc tokenize(input: string): seq[string] =#{.noSideEffect.} =
   ##  Convert ``input`` string into sequence of tokens.
-  input.replace(
-    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ").splitWhitespace()
+  result = @[]
+  let input = input.replace(
+    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ").replace(
+    "\"", " \" ").replace("\\ \" ", "\\\"")
+
+  var
+    inStr = false
+    seqStr: seq[string] = @[]
+  for token in input.split():
+    if inStr:
+      if token == "\"":
+        inStr = false
+        result.add("\"" & seqStr.join(" ").prepareString() & "\"")
+        seqStr = @[]
+      else:
+        seqStr.add(token)
+    else: # not inStr
+      if token.len > 0:
+        if token == "\"":
+          inStr = true
+        else:
+          result.add(token)
 
 
 proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
@@ -623,7 +657,8 @@ proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
 
 
 proc toAtom(token: string): Atom =
-  ##  Parse single ``token``. If token is not a number, it is a symbol.
+  ##  Parse a single ``token``.
+  ##  If the token is not a number, it is a symbol.
   var
     f: float
     i, num, den: int
@@ -631,6 +666,11 @@ proc toAtom(token: string): Atom =
   elif token.parseInt(i) == token.len: atom(number(i))    # token is int
   elif token.parseFloat(f) == token.len: atom(number(f))  # token is float
   else: Atom(kind: aSymbol, s: token)                     # token is symbol
+
+
+proc addToStrSeq(strSeq: var seq[string], str: string): bool =
+  result = not (str == "\"")
+  if result: strSeq.add(str)
 
 
 proc read(tokens: var seq[string]): Atom =
@@ -641,7 +681,8 @@ proc read(tokens: var seq[string]): Atom =
     # return atom error "ERROR: Unexpected EOF while reading"
     return atom false
 
-  var token = tokens.pop() # take next token
+  var
+    token = tokens.pop() # take next token
 
   if token == "(":
     result = atom()  # start new list
@@ -670,6 +711,12 @@ proc read(tokens: var seq[string]): Atom =
     return atom error "Unexpected )"
 
   else:
+    #echo token
+    if token == "\"":
+      var strSeq: seq[string] = @[]
+      while (tokens.len > 0) and strSeq.addToStrSeq(tokens.pop()):
+        discard
+      token = "\"" & strSeq.join(" ") & "\""
     return token.toAtom
 
 
@@ -701,6 +748,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
   of aSymbol: # variable reference
     return if is_comment(x): atom false
            elif is_quoted(x): atom x.s[1..^1]
+           elif is_string(x): atom x.s[1..^2]
            else: env[x.s]
 
   of aFun:
