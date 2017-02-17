@@ -23,7 +23,8 @@
 # Esgorhannoth esgorhannoth@gmail.com
 
 import
-  os, parseutils, rationals, sequtils, strutils, tables
+  os, parseutils, rationals, sequtils, tables, unicode
+import strutils except toLower, toUpper
 
 
 # NUMBER #
@@ -274,7 +275,7 @@ proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
 
 proc `[]`(obj: Env, key: string): Atom =
   ##  Get ``key`` value from environment.
-  let key = key.toLowerAscii
+  let key = key.toLower()
   return if obj.table.contains(key): obj.table[key]
          elif obj.outer != nil: obj.outer[key]
          else: atom error "No such variable: " & key
@@ -282,7 +283,7 @@ proc `[]`(obj: Env, key: string): Atom =
 
 proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
   ##  Set ``key`` in environment to given ``val``.
-  obj.table[key.toLowerAscii] = val
+  obj.table[key.toLower] = val
 
 
 # GLOBAL_ENV #
@@ -517,7 +518,7 @@ proc fun_upcase(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "upcase needs 1 argument"
   let fst = args[0]
   if fst.is_string:
-    return atom fst.s.toUpperAscii()
+    return atom fst.s.toUpper()
   else:
     return atom error "Not a string: " & $fst
 
@@ -527,7 +528,7 @@ proc fun_downcase(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "downcase needs 1 argument"
   let fst = args[0]
   if fst.is_string:
-    return atom fst.s.toLowerAscii()
+    return atom fst.s.toLower()
   else:
     return atom error "Not a string: " & $fst
 
