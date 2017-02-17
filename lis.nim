@@ -302,12 +302,12 @@ template fun_bool(op: untyped, args: openArray[Atom]): untyped =
     return atom error "Not a number nor bool: " & $args[0]
 
   for i in 1..args.high:
-    if args[0].kind == aNumber:
-      if args[i].kind == aNumber: result.b = op(args[0].n, args[i].n)
+    if args[i-1].kind == aNumber:
+      if args[i].kind == aNumber: result.b = op(args[i-1].n, args[i].n)
       else:
         return atom error "Not a number: " & $args[i]
     else:
-      if args[i].kind == aBool: result.b = op(args[0].b, args[i].b)
+      if args[i].kind == aBool: result.b = op(args[i-1].b, args[i].b)
       else:
         return atom error "Not a bool: " & $args[i]
 
