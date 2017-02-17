@@ -161,6 +161,14 @@ proc is_string(a: Atom): bool =
     false
 
 
+proc str_strip(a: Atom): string =
+  ## Strip quotes.
+  if a.is_string:
+    a.s[1..^2]
+  else:
+    ""
+
+
 proc is_valid_id(a: Atom): bool =
   return a.kind == aSymbol and not is_quoted(a)
 
@@ -432,7 +440,7 @@ proc fun_le(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_cons(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom error "Cons requires 2 arguments: atom and list"
+    return atom error "Cons needs 2 arguments: atom and list"
   let elem = args[0]
   let lst  = args[1]
   return case lst.kind:
@@ -483,7 +491,7 @@ proc fun_len(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom error "null? requires 1 argument"
+    return atom error "null? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
   of aList:
@@ -498,10 +506,58 @@ proc fun_is_null(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom error "Echo requires 1 argument"
+    return atom error "echo needs 1 argument"
   let fst = args[0]
   echo $fst
   return fst
+
+
+proc fun_upcase(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "upcase needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.s.toUpperAscii()
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_downcase(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "downcase needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.s.toLowerAscii()
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_length(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "length needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom number fst.str_strip.len
+  else:
+    return atom error "Not a string: " & $fst
+
+
+proc fun_char(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 2:
+    return atom error "char needs 2 arguments"
+  let fst = args[0]
+  if fst.is_string:
+    let str = fst.str_strip()
+    if args[1].kind == aNumber:
+      let idx = args[1].n.toInt
+      if (idx >= 0) and (idx < str.len):
+        return atom str[idx..idx]
+      else:
+        return atom error "Out of bounds: " & $idx
+    else:
+      return atom error "Not a number: " & $args[1]
+  else:
+    return atom error "Not a string: " & $fst
 
 
 proc quit_with(errorcode: int, newline = false) =
@@ -554,6 +610,10 @@ var global_env = newEnv([
   ("null?",   atom fun_is_null),
   ("nil?",    atom fun_is_null),
   ("echo",    atom fun_echo),
+  ("upcase",  atom fun_upcase),
+  ("downcase",atom fun_downcase),
+  ("length",  atom fun_length),
+  ("char",    atom fun_char),
   ])
 
 
@@ -748,7 +808,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
   of aSymbol: # variable reference
     return if is_comment(x): atom false
            elif is_quoted(x): atom x.s[1..^1]
-           elif is_string(x): atom x.s[1..^2]
+           elif is_string(x): atom x.s
            else: env[x.s]
 
   of aFun:
@@ -845,7 +905,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (fn arg body) lambda of one argument
       elif (xcar.s == "fn") or (xcar.s == "fun"):
         if xcdr.len != 2:
-          return atom error "Fn/Fun requires 2 arguments: (fn arg body)"
+          return atom error "Fn/Fun needs 2 arguments: (fn arg body)"
         let arg = xcdr[0]
         let body = xcdr[1]
         return case body.kind:
