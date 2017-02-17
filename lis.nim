@@ -90,54 +90,6 @@ proc atom(args: seq[string], body: seq[Atom], env: Env): Atom =
   atom(Fun(args: args, body: body, env: env))
 
 
-proc `$`(obj: Atom): string =
-  ##  Convert ``Atom`` to ``string``.
-  case obj.kind
-  of aList:                                   # List
-    result = "( "
-    for i in obj.list: result &= $i & " "
-    result &= ")"
-  of aNumber:                                 # Number
-    let
-      f = obj.n.toFloat
-      i = obj.n.toInt
-    if f - i.float != 0: return $f
-    else: return $i
-  of aSymbol: return obj.s                    # Symbol
-  of aBool: return if obj.b: "T" else: "NIL"  # Boolean
-  of aFun:                                    # Function
-    if obj.f.body.len > 0:
-      let args = if obj.f.args.len > 0:
-          "(" & obj.f.args.foldl(a & ", " & b) & ")"
-        else:
-          "()"
-      result = "Function " & args
-    else:
-      result = "Built-in function"
-  of aError: return "ERROR: " & obj.e.s       # Error
-
-
-# For NumberBoolFunc
-
-proc `==`(a, b: Number): bool =
-  return rationals.`==`(a, b)
-
-
-proc `!=`(a, b: Number): bool =
-  return not rationals.`==`(a, b)
-
-
-# Error procs
-
-proc `$`(obj: Error) : string =
-  return "ERROR: " & obj.s
-
-
-proc write(err: Error): Error =
-  writeLine(stderr, $err)
-  return err
-
-
 # Symbol procs
 
 proc is_comment(a: Atom): bool =
@@ -172,6 +124,58 @@ proc str_strip(a: Atom): string =
 
 proc is_valid_id(a: Atom): bool =
   return a.kind == aSymbol and not is_quoted(a)
+
+
+proc `$`(obj: Atom): string =
+  ##  Convert ``Atom`` to ``string``.
+  case obj.kind
+  of aList:                                   # List
+    result = "( "
+    for i in obj.list: result &= $i & " "
+    result &= ")"
+  of aNumber:                                 # Number
+    let
+      f = obj.n.toFloat
+      i = obj.n.toInt
+    if f - i.float != 0: return $f
+    else: return $i
+  of aSymbol:                                 # Symbol
+    if obj.is_string:
+      return obj.str_strip()
+    else:
+      return obj.s
+  of aBool: return if obj.b: "T" else: "NIL"  # Boolean
+  of aFun:                                    # Function
+    if obj.f.body.len > 0:
+      let args = if obj.f.args.len > 0:
+          "(" & obj.f.args.foldl(a & ", " & b) & ")"
+        else:
+          "()"
+      result = "Function " & args
+    else:
+      result = "Built-in function"
+  of aError: return "ERROR: " & obj.e.s       # Error
+
+
+# For NumberBoolFunc
+
+proc `==`(a, b: Number): bool =
+  return rationals.`==`(a, b)
+
+
+proc `!=`(a, b: Number): bool =
+  return not rationals.`==`(a, b)
+
+
+# Error procs
+
+proc `$`(obj: Error) : string =
+  return "ERROR: " & obj.s
+
+
+proc write(err: Error): Error =
+  writeLine(stderr, $err)
+  return err
 
 
 # List procs
@@ -513,6 +517,16 @@ proc fun_echo(args: openArray[Atom]): Atom {.cdecl.} =
   return fst
 
 
+proc fun_capitalize(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "capitalize needs 1 argument"
+  let fst = args[0]
+  if fst.is_string:
+    return atom fst.str_strip().title()
+  else:
+    return atom error "Not a string: " & $fst
+
+
 proc fun_upcase(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
     return atom error "upcase needs 1 argument"
@@ -538,7 +552,7 @@ proc fun_length(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "length needs 1 argument"
   let fst = args[0]
   if fst.is_string:
-    return atom number fst.str_strip.len
+    return atom number fst.str_strip.runeLen
   else:
     return atom error "Not a string: " & $fst
 
@@ -552,7 +566,7 @@ proc fun_char(args: openArray[Atom]): Atom {.cdecl.} =
     if args[1].kind == aNumber:
       let idx = args[1].n.toInt
       if (idx >= 0) and (idx < str.len):
-        return atom str[idx..idx]
+        return atom str.toRunes[idx].toUtf8
       else:
         return atom error "Out of bounds: " & $idx
     else:
@@ -579,42 +593,43 @@ proc fun_quit(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 var global_env = newEnv([
-  ("quit",    atom fun_quit),
-  ("exit",    atom fun_quit),
-  ("t",       atom true),
-  ("nil",     atom false),
-  ("bool?",   atom fun_isBool),
-  ("number?", atom fun_isNumber),
-  ("pi",      atom number 3.141592653589793),
-  ("e",       atom number 2.718281828459045),
-  ("+",       atom fun_plus),
-  ("-",       atom fun_minus),
-  ("*",       atom fun_multiply),
-  ("/",       atom fun_divide),
-  ("max",     atom fun_max),
-  ("min",     atom fun_min),
-  ("abs",     atom fun_abs),
-  ("round",   atom fun_round),
-  ("mod",     atom fun_mod),
-  ("odd?",    atom fun_odd),
-  ("even?",   atom fun_even),
-  ("=",       atom fun_eq),
-  ("!=",      atom fun_ne),
-  (">",       atom fun_gt),
-  ("<",       atom fun_lt),
-  (">=",      atom fun_ge),
-  ("<=",      atom fun_le),
-  ("cons",    atom fun_cons),
-  ("car",     atom fun_car),
-  ("cdr",     atom fun_cdr),
-  ("len",     atom fun_len),
-  ("null?",   atom fun_is_null),
-  ("nil?",    atom fun_is_null),
-  ("echo",    atom fun_echo),
-  ("upcase",  atom fun_upcase),
-  ("downcase",atom fun_downcase),
-  ("length",  atom fun_length),
-  ("char",    atom fun_char),
+  ("quit",      atom fun_quit),
+  ("exit",      atom fun_quit),
+  ("t",         atom true),
+  ("nil",       atom false),
+  ("bool?",     atom fun_isBool),
+  ("number?",   atom fun_isNumber),
+  ("pi",        atom number 3.141592653589793),
+  ("e",         atom number 2.718281828459045),
+  ("+",         atom fun_plus),
+  ("-",         atom fun_minus),
+  ("*",         atom fun_multiply),
+  ("/",         atom fun_divide),
+  ("max",       atom fun_max),
+  ("min",       atom fun_min),
+  ("abs",       atom fun_abs),
+  ("round",     atom fun_round),
+  ("mod",       atom fun_mod),
+  ("odd?",      atom fun_odd),
+  ("even?",     atom fun_even),
+  ("=",         atom fun_eq),
+  ("!=",        atom fun_ne),
+  (">",         atom fun_gt),
+  ("<",         atom fun_lt),
+  (">=",        atom fun_ge),
+  ("<=",        atom fun_le),
+  ("cons",      atom fun_cons),
+  ("car",       atom fun_car),
+  ("cdr",       atom fun_cdr),
+  ("len",       atom fun_len),
+  ("null?",     atom fun_is_null),
+  ("nil?",      atom fun_is_null),
+  ("echo",      atom fun_echo),
+  ("capitalize",atom fun_capitalize),
+  ("upcase",    atom fun_upcase),
+  ("downcase",  atom fun_downcase),
+  ("length",    atom fun_length),
+  ("char",      atom fun_char),
   ])
 
 
