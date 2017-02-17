@@ -618,7 +618,7 @@ template prepareString(str: string): string =
   str.replace("\\\"", "\"")
 
 
-proc tokenize(input: string): seq[string] =#{.noSideEffect.} =
+proc tokenize(input: string): seq[string] {.noSideEffect.} =
   ##  Convert ``input`` string into sequence of tokens.
   result = @[]
   let input = input.replace(
