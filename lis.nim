@@ -516,12 +516,8 @@ proc call(fun: Fun, args: seq[Atom], env: Env): Atom =
 
 proc tokenize(input: string): seq[string] {.noSideEffect.} =
   ##  Convert ``input`` string into sequence of tokens.
-  result = @[]
-  let input = input.replace(
-    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ")
-  for token in input.split(Whitespace + NewLines):
-    if token.len > 0:
-      result.add token
+  input.replace(
+    "(", " ( ").replace(")", " ) ").replace("' ( ", " '( ").splitWhitespace()
 
 
 proc parseRatio(str: string, num, den: var int): bool {.noSideEffect.} =
