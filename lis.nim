@@ -575,6 +575,19 @@ proc fun_char(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "Not a string: " & $fst
 
 
+proc fun_format(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len < 1:
+    return atom error "format needs 1 or more arguments"
+  let fst = args[0]
+  if fst.is_string:
+    var subs: seq[string] = @[]
+    for i in 1..args.high:
+      subs.add $args[i]
+    return atom (fst.str_strip() % subs)
+  else:
+    return atom error "Not a string: " & $fst
+
+
 proc quit_with(errorcode: int, newline = false) =
   if newline:
     echo ""
@@ -630,6 +643,8 @@ var global_env = newEnv([
   ("downcase",  atom fun_downcase),
   ("length",    atom fun_length),
   ("char",      atom fun_char),
+  ("format",    atom fun_format),
+  ("fmt",       atom fun_format),
   ])
 
 
