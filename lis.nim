@@ -50,8 +50,8 @@ template error*(str: string): Error =
 type
   Env = ref EnvObj  ##  Environment for ``eval()``
   EnvObj = object
-    table: TableRef[string, Atom]
-    outer: Env
+    table: TableRef[string, Atom] ##  Environment table
+    outer: Env      ##  Outer (parent) environment
 
   Builtin* = proc(args: openArray[Atom]): Atom {.cdecl.} ##  Built-in proc type
 
@@ -93,12 +93,16 @@ proc atom*(args: seq[string], body: seq[Atom], env: Env): Atom =
 # Symbol procs
 
 proc is_comment*(a: Atom): bool =
+  ##  ``Return`` `true` if atom is a comment (starts with `;`),
+  ##  or `false` otherwise.
   return case a.kind:
     of aSymbol: a.s[0] == ';'
     else: false
 
 
 proc is_quoted*(a: Atom): bool =
+  ##  ``Return`` `true` if atom is quoted (starts with `'`),
+  ##  or `false` otherwise.
   return case a.kind:
   of aSymbol:
     a.s[0] == '\''
@@ -107,6 +111,8 @@ proc is_quoted*(a: Atom): bool =
 
 
 proc is_string*(a: Atom): bool =
+  ##  ``Return`` `true` if atom is string (bound in quotes),
+  ##  or `false` otherwise.
   return case a.kind:
   of aSymbol:
     (a.s[0] == '\"') and (a.s[^1] == '\"')
@@ -115,14 +121,15 @@ proc is_string*(a: Atom): bool =
 
 
 proc str_strip*(a: Atom): string =
-  ## Strip quotes from a string.
+  ## Strip quotes from around the string.
   if a.is_string:
     a.s[1..^2]
   else:
-    ""
+    $a
 
 
 proc is_valid_id*(a: Atom): bool =
+  ##  ``Return`` `true` if atom is a valid id, or false otherwise.
   return a.kind == aSymbol and not is_quoted(a)
 
 
@@ -181,13 +188,14 @@ proc write*(err: Error): Error =
 # List procs
 
 proc reverse*(input: seq[Atom]): seq[Atom] {.noSideEffect.} =
+  ##  Reverse ``input`` sequence.
   result = @[]
   for i in countdown(input.high, 0):
     result.add(input[i])
 
 
 proc cons*(elem, lst: Atom): Atom =
-  ## `cons` an element to the beginning of a list
+  ##  ``cons`` an element to the beginning of a list.
   var rev = lst.list.reverse()
   rev.add(elem)
   return atom rev.reverse()
@@ -219,7 +227,7 @@ proc cdr*(x: Atom): Atom =
 
 proc quote*(x: Atom): Atom =
   ##  ``Return`` tail of ``x.list`` as list or as single ``Atom``
-  ##  (in case of tail's length of 1).
+  ##  (in case of tail's length of `1`).
   return case x.kind:
   of aList:
     if x.list.len != 2:
@@ -231,6 +239,7 @@ proc quote*(x: Atom): Atom =
 
 
 proc toStrList*(a: Atom): seq[string] =
+  ##  Convert ``Atom.list`` to a sequence of strings.
   result = @[]
   case a.kind:
     of aList:
@@ -273,34 +282,34 @@ proc lambda*(args: seq[string], body: seq[Atom], env: Env): Fun =
 # ENV #
 
 proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
-  ##  Create new ``Env``.
+  ##  Create a new ``Env``.
   Env(table: newTable[string, Atom](pairs), outer: outer)
 
 
-proc `[]`(obj: Env, key: string): Atom =
-  ##  Get ``key`` value from environment.
+proc `[]`(env: Env, key: string): Atom =
+  ##  Get ``key`` value from thr environment ``env``.
   let key = key.toLower()
-  return if obj.table.contains(key): obj.table[key]
-         elif obj.outer != nil: obj.outer[key]
+  return if env.table.contains(key): env.table[key]
+         elif env.outer != nil: env.outer[key]
          else: atom error "No such variable: " & key
 
 
-proc `[]=`(obj: Env, key: string, val: Atom) {.inline.} =
-  ##  Set ``key`` in environment to given ``val``.
-  obj.table[key.toLower] = val
+proc `[]=`(env: Env, key: string, val: Atom) {.inline.} =
+  ##  Set ``key`` in the environment ``env`` to given ``val``.
+  env.table[key.toLower] = val
 
 
 # GLOBAL_ENV #
 
 template fun_isType*(typ: AtomKind, args: openArray[Atom]): untyped =
-  ##  Template for function of type kind(atom): bool.
+  ##  Template for a function of type ``kind(atom): bool``.
   for i in args:
     if i.kind != typ: return atom false
   return atom true
 
 
 template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
-  ##  Template for functions of type op(num1, num2, ...): num.
+  ##  Template for a function of type ``op(num1, num2, ...): num``.
   case args[0].kind:
   of aNumber:
     result = atom args[0].n
@@ -317,7 +326,7 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
 
 
 template fun_bool*(op: untyped, args: openArray[Atom]): untyped =
-  ##  Template for functions of type op(num1, num2, ...): bool
+  ##  Template for a function of type ``op(num1, num2, ...): bool``.
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
     return atom error "Not a number nor bool: " & $args[0]
@@ -829,7 +838,7 @@ proc parse(input: string): Atom =
 # EVAL #
 
 proc eval(x: Atom, env: Env = global_env): Atom =
-  ##  Evaluate an expression ``x`` in an environment ``env``.
+  ##  Evaluate an expression ``x`` in the environment ``env``.
   ##
   ##  ``Return`` evaluated ``Atom``.
   case x.kind
@@ -1038,14 +1047,17 @@ iterator expressions(input: string): string =
 # INTERFACE #
 
 proc bindAtom*(name: string, a: Atom) =
+  ##  Bind a new atom to a global environment.
   global_env[name] = a
 
 
 proc execLine*(input: string): Atom =
+  ##  Execute a line of code (single expression).
   return eval parse(input)
 
 
-proc execFile*(input: string) =
+proc execCode*(input: string) =
+  ##  Execute a code block (multiple expressions).
   let input = input.split(NewLines).sanitize().join()
   for line in input.expressions:
     discard execLine(line)
