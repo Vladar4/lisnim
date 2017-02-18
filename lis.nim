@@ -51,7 +51,7 @@ type
   Env = ref EnvObj  ##  Environment for ``eval()``
   EnvObj = object
     table: TableRef[string, Atom] ##  Environment table
-    outer: Env      ##  Outer (parent) environment
+    outer: Env                    ##  Outer (parent) environment
 
   Builtin* = proc(args: openArray[Atom]): Atom {.cdecl.} ##  Built-in proc type
 
@@ -64,7 +64,7 @@ type
   AtomKind* = enum
     aList, aNumber, aSymbol, aBool, aFun, aError
 
-  Atom* = object ##  Atom type
+  Atom* = object                  ##  Atom type
     case kind*: AtomKind          ##  Variant of
     of aList:   list*: seq[Atom]  ##  List of atoms
     of aNumber: n*: Number        ##  Number
@@ -120,6 +120,7 @@ proc is_string*(a: Atom): bool =
     false
 
 
+proc `$`*(obj: Atom): string # forward declaration
 proc str_strip*(a: Atom): string =
   ## Strip quotes from around the string.
   if a.is_string:
@@ -1046,9 +1047,14 @@ iterator expressions(input: string): string =
 
 # INTERFACE #
 
-proc bindAtom*(name: string, a: Atom) =
-  ##  Bind a new atom to a global environment.
+proc setAtom*(name: string, a: Atom) =
+  ##  Set an atom in the global environment.
   global_env[name] = a
+
+
+proc getAtom*(name: string): Atom =
+  ##  Get an atom from the global environment.
+  global_env[name]
 
 
 proc execLine*(input: string): Atom =
@@ -1070,7 +1076,7 @@ when isMainModule:
   proc main() =
     for i in 1..paramCount():
       try:
-        execFile readFile(paramStr(i))
+        execCode readFile(paramStr(i))
       except IOError:
         echo "IO error while reading from file: " & paramStr(i)
         quit_with(1)
