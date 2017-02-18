@@ -1041,8 +1041,8 @@ proc bindAtom*(name: string, a: Atom) =
   global_env[name] = a
 
 
-proc execLine*(input: string): string =
-  return $(eval parse(input))
+proc execLine*(input: string): Atom =
+  return eval parse(input)
 
 
 proc execFile*(input: string) =
