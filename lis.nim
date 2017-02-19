@@ -202,6 +202,12 @@ proc cons*(elem, lst: Atom): Atom =
   return atom rev.reverse()
 
 
+proc snoc*(lst, elem: Atom): Atom =
+  ##  ``snoc`` an element to the end of a list.
+  result = atom lst.list
+  result.list.add(elem)
+
+
 proc car*(x: Atom): Atom =
   ##  ``Return`` head of ``Atom.list``.
   return case x.kind:
@@ -361,7 +367,8 @@ proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
   of aBool:
     atom(not fst.b)
   of aError:
-    fst
+    #fst
+    atom true
   else:
     atom false
 
@@ -392,7 +399,7 @@ proc fun_min*(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_abs*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom error "Abs needs 1 argument"
+    return atom error "abs needs 1 argument"
   if args[0].kind == aNumber:
     return atom abs(args[0].n)
   else:
@@ -401,7 +408,7 @@ proc fun_abs*(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_round*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len <= 0:
-    return atom error "Round needs 1 argument"
+    return atom error "round needs 1 argument"
   if args[0].kind == aNumber:
     return atom number((args[0].n).toInt)
   else:
@@ -410,7 +417,7 @@ proc fun_round*(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_mod*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom error "Mod needs 2 arguments"
+    return atom error "mod needs 2 arguments"
   for i in args:
     case i.kind:
     of aNumber: continue
@@ -470,7 +477,7 @@ proc fun_le*(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_cons*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 2:
-    return atom error "Cons needs 2 arguments: atom and list"
+    return atom error "cons needs 2 arguments: atom and list"
   let elem = args[0]
   let lst  = args[1]
   return case lst.kind:
@@ -481,26 +488,44 @@ proc fun_cons*(args: openArray[Atom]): Atom {.cdecl.} =
     of aError:
       elem
     else:
-      atom error "First argument to `cons` must be either a symbol or a number"
+      atom error "First argument to cons must be either a symbol or a number"
   else:
-    atom error "Second argument to `cons` must be a list"
+    atom error "Second argument to cons must be a list"
+
+
+proc fun_snoc*(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 2:
+    return atom error "snoc needs 2 argument: list and atom"
+  let lst = args[0]
+  let elem = args[1]
+  return case lst.kind:
+  of aList:
+    case elem.kind:
+    of aSymbol, aNumber, aBool, aFun:
+      snoc(lst, elem)
+    of aError:
+      elem
+    else:
+      atom error "Second argument to snoc must be a symbol or a number"
+  else:
+    atom error "First argument to snoc must be a list"
 
 
 proc fun_car*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom error "Car needs 1 argument"
+    return atom error "car needs 1 argument"
   return case args[0].kind:
   of aList:
     car atom args[0].list
   of aError:
     args[0]
   else:
-    atom error "Car argument must be of list type"
+    atom error "car argument must be of list type"
 
 
 proc fun_cdr*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom error "Cdr needs 1 argument"
+    return atom error "cdr needs 1 argument"
   return case args[0].kind:
   of aList:
     cdr atom args[0].list
@@ -512,7 +537,7 @@ proc fun_cdr*(args: openArray[Atom]): Atom {.cdecl.} =
 
 proc fun_len*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
-    return atom error "Len needs 1 argument"
+    return atom error "len needs 1 argument"
   if args[0].kind == aList:
     return atom number(len(args[0].list))
   else:
@@ -520,11 +545,12 @@ proc fun_len*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_echo*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 1:
-    return atom error "echo needs 1 argument"
-  let fst = args[0]
-  echo $fst
-  return fst
+  if args.len < 1:
+    return atom error "echo needs 1 or more arguments"
+  for arg in args:
+    stdout.write $arg
+  stdout.write "\n"
+  return args[0]
 
 
 proc fun_capitalize*(args: openArray[Atom]): Atom {.cdecl.} =
@@ -642,6 +668,7 @@ var global_env = newEnv([
   (">=",        atom fun_ge),
   ("<=",        atom fun_le),
   ("cons",      atom fun_cons),
+  ("snoc",      atom fun_snoc),
   ("car",       atom fun_car),
   ("cdr",       atom fun_cdr),
   ("len",       atom fun_len),
@@ -884,7 +911,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (if test conseq alt)
       if xcar.s == "if":
         if xcdr.len != 3:
-          return atom error "If needs 3 arguments"
+          return atom error "if needs 3 arguments"
         else:
           let test = eval(xcdr[0], env)
           return case test.kind:
@@ -899,7 +926,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (def name value)
       elif xcar.s == "def":
         if xcdr.len != 2:
-          return atom error "Def needs 2 arguments"
+          return atom error "def needs 2 arguments"
         let arg = xcdr[0]
         let value = xcdr[1]
         case arg.kind:
@@ -929,7 +956,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (lambda (args...) body)
       elif xcar.s == "lambda" or xcar.s == "\\":
         if xcdr.len != 2:
-          return atom error "Lambda needs 2 arguments: (lambda (args...) body)"
+          return atom error "lambda needs 2 arguments: (lambda (args...) body)"
         let arglist = xcdr[0]
         let body = xcdr[1]
 
@@ -946,7 +973,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
       # (fn arg body) lambda of one argument
       elif (xcar.s == "fn") or (xcar.s == "fun"):
         if xcdr.len != 2:
-          return atom error "Fn/Fun needs 2 arguments: (fn arg body)"
+          return atom error "fn/fun needs 2 arguments: (fn arg body)"
         let arg = xcdr[0]
         let body = xcdr[1]
         return case body.kind:
