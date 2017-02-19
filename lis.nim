@@ -351,6 +351,21 @@ proc fun_isNumber*(args: openArray[Atom]): Atom {.cdecl.} =
   fun_isType(aNumber, args)
 
 
+proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len <= 0:
+    return atom error "null? needs 1 argument"
+  let fst = args[0]
+  return case fst.kind:
+  of aList:
+    atom(fst.list.len <= 0)
+  of aBool:
+    atom(not fst.b)
+  of aError:
+    fst
+  else:
+    atom false
+
+
 proc fun_plus*(args: openArray[Atom]): Atom {.cdecl.} =
   fun_numbers(`+`, args)
 
@@ -504,21 +519,6 @@ proc fun_len*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom number(1)
 
 
-proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len <= 0:
-    return atom error "null? needs 1 argument"
-  let fst = args[0]
-  return case fst.kind:
-  of aList:
-    atom(fst.list.len <= 0)
-  of aBool:
-    atom(not fst.b)
-  of aError:
-    fst
-  else:
-    atom false
-
-
 proc fun_echo*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
     return atom error "echo needs 1 argument"
@@ -616,12 +616,12 @@ proc fun_quit*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 var global_env = newEnv([
-  ("quit",      atom fun_quit),
-  ("exit",      atom fun_quit),
   ("t",         atom true),
   ("nil",       atom false),
   ("bool?",     atom fun_isBool),
   ("number?",   atom fun_isNumber),
+  ("nil?",      atom fun_is_null),
+  ("null?",     atom fun_is_null),
   ("pi",        atom number 3.141592653589793),
   ("e",         atom number 2.718281828459045),
   ("+",         atom fun_plus),
@@ -645,8 +645,6 @@ var global_env = newEnv([
   ("car",       atom fun_car),
   ("cdr",       atom fun_cdr),
   ("len",       atom fun_len),
-  ("null?",     atom fun_is_null),
-  ("nil?",      atom fun_is_null),
   ("echo",      atom fun_echo),
   ("capitalize",atom fun_capitalize),
   ("upcase",    atom fun_upcase),
@@ -655,6 +653,8 @@ var global_env = newEnv([
   ("char",      atom fun_char),
   ("format",    atom fun_format),
   ("fmt",       atom fun_format),
+  ("exit",      atom fun_quit),
+  ("quit",      atom fun_quit),
   ])
 
 
@@ -926,7 +926,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
         else:
           return atom error "Def defines either vals or functions"
 
-      # (lambda (name args...) body)
+      # (lambda (args...) body)
       elif xcar.s == "lambda" or xcar.s == "\\":
         if xcdr.len != 2:
           return atom error "Lambda needs 2 arguments: (lambda (args...) body)"

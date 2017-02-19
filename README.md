@@ -19,8 +19,10 @@ Syntax
 * (def name value)
 * (def (name args...) body)
 * (lambda (args...) body)
-* (echo arg) // returns arg
-* (some-function args...)
+* (fn arg body) or (fun arg body)
+* (do (expr1) (expr2) ...) or (begin (expr1) (expr2) ...)
+* (echo arg)
+* (call-some-function args...)
 
 Types
 -----
@@ -28,6 +30,7 @@ Types
 * List: (item1 item2 ...)
 * Number: int, float or ratio
 * Bool: T or NIL
+* String: "line of characters bound in quotes"
 
 Built-in functions
 ------------------
@@ -40,6 +43,7 @@ Built-in functions
 * **Comparison:** =, !=, >, <, >=, <=
 * **List:** cons, car, cdr, len
 * **Output:** echo
+* **Strings:** capitalize, upcase, downcase, length, char, format, fmt
 * **Exit:** exit, quit (with optional errorcode)
 
 Example
@@ -67,7 +71,20 @@ To run on Windows:
 
 `.\lis.exe filename`
 
-Notes
------
 
-* Nested functions are not supported.
+Embedding:
+----------
+
+```nim
+  import lis
+
+  proc myfunc(args: openarray[Atom]): Atom {.cdecl.} =
+    stdout.write "This is my own function! "
+    for arg in args:
+      stdout.write $arg
+    stdout.write "\n"
+
+  setAtom("myfunc", atom myfunc)
+  discard execLine("""(myfunc "hello" "world" "!")""")
+```
+
