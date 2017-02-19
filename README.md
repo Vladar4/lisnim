@@ -41,7 +41,7 @@ Built-in functions
 * **Constants:** pi, e
 * **Arithmetics:** +, -, \*, /, max, min, abs, round, mod, odd?, even?
 * **Comparison:** =, !=, >, <, >=, <=
-* **List:** cons, car, cdr, len
+* **List:** cons, snoc, car, cdr, len
 * **Output:** echo
 * **Strings:** capitalize, upcase, downcase, length, char, format, fmt
 * **Exit:** exit, quit (with optional errorcode)
@@ -85,6 +85,6 @@ Embedding:
     stdout.write "\n"
 
   setAtom("myfunc", atom myfunc)
-  discard execLine("""(myfunc "hello" "world" "!")""")
+  discard execLine("""(myfunc "hello," " world" "!")""")
 ```
 
