@@ -358,7 +358,7 @@ proc fun_isNumber*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 0:
+  if args.len != 1:
     return atom error "null? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
@@ -374,7 +374,7 @@ proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_is_defined*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 0:
+  if args.len != 1:
     return atom error "defined? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
