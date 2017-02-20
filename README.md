@@ -40,6 +40,7 @@ Types
 * List: `(item1 item2 ...)`
 * Number: `int`, `float` or `ratio` e.g. `5`, `3.1415926`, `42/7`
 * Bool: `T` or `NIL`
+* String: "line of characters bound in quotes"
 
 Built-in functions
 ------------------
@@ -50,8 +51,9 @@ Built-in functions
 * **Constants:** `pi`, `e`
 * **Arithmetics:** `+`, `-`, `*`, `/`, `max`, `min`, `abs`, `round`, `mod`, `odd?`, `even?`
 * **Comparison:** `=`, `!=`, `>`, `<`, `>=`, `<=`
-* **List:** `cons`, `car`, `cdr`, `len`
+* **List:** `cons`, `snoc`, `car`, `cdr`, `len`
 * **Output:** `echo`
+* **Strings:** capitalize, upcase, downcase, length, char, format, fmt
 * **Exit:** `exit`, `quit` (with optional errorcode)
 
 Example
@@ -100,21 +102,21 @@ To run on Windows:
 
 `.\lis.exe filename`
 
-File
-----
 
-File, which `./lis` takes as argument may contain S-expressions and comments, that start with ; and span till the end of line.
-Behind the scenes all the S-expressions in the file are wrapped in (do ...) construct for sequential evaluation.
+Embedding:
+----------
 
-`(def (plus1 n) (+ n 1))`
+```nim
+  import lis
 
-~~Or you can use \\ before line break to span a single expression on multiple lines.~~
+  proc myfunc(args: openarray[Atom]): Atom {.cdecl.} =
+    stdout.write "This is my own function! "
+    for arg in args:
+      stdout.write $arg
+    stdout.write "\n"
 
-Now you can use line break anywhere a space can be used. No need to use \\&lt;LF&gt; to make an S-expression multiline.
-
-```
-(def (plus2 n)
-  (+ n 2))
+  setAtom("myfunc", atom myfunc)
+  discard execLine("""(myfunc "hello," " world" "!")""")
 ```
 
 Notes
