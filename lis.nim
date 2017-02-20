@@ -327,7 +327,10 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
 
   for i in 1..args.high:
     if args[i].kind == aNumber:
-      result.n = op(result.n, args[i].n)
+      try:
+        result.n = op(result.n, args[i].n)
+      except:
+        return atom error getCurrentExceptionMsg()
     else:
       return atom error "Not a number: " & $args[i]
 
@@ -569,7 +572,7 @@ proc fun_print*(args: openArray[Atom]): Atom {.cdecl.} =
   for arg in args:
     stdout.write $arg
   stdout.write "\n"
-  return args[0]
+  return atom()
 
 
 proc fun_capitalize*(args: openArray[Atom]): Atom {.cdecl.} =
