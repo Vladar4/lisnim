@@ -667,7 +667,7 @@ var global_env = newEnv([
   ("number?",   atom fun_isNumber),
   ("nil?",      atom fun_is_null),
   ("null?",     atom fun_is_null),
-  ("defined?"), atom fun_is_defined),
+  ("defined?",  atom fun_is_defined),
   ("pi",        atom number 3.141592653589793),
   ("e",         atom number 2.718281828459045),
   ("+",         atom fun_plus),
