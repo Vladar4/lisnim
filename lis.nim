@@ -382,9 +382,9 @@ proc fun_is_defined*(args: openArray[Atom]): Atom {.cdecl.} =
   let fst = args[0]
   return case fst.kind:
   of aError:
-    atom true
-  else:
     atom false
+  else:
+    atom true
 
 
 proc fun_plus*(args: openArray[Atom]): Atom {.cdecl.} =
