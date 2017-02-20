@@ -15,22 +15,26 @@ Windows: `.\lis.exe [source1 source2 ...]`
 Syntax
 ------
 
-+ * `(quote ...) or '(...)`
+* Base:
+  * `(quote ...) or '(...)`
   * `(list ...)`
   * `(if test conseq alt)`
   * `(echo arg)` Prints and returns `arg`
 
-+ * `(def name value)` Binds `value` to `name`
+* Functions:
+  * `(def name value)` Binds `value` to `name`
   * `(def (name args...) body)` Defines function `name` with `args`. Equivalent of `(def name (lambda (args...) body))`
   * `(fn-name args...)` Function application
 
-+ * `(lambda (args...) body)` Anomymous function
+* Lambdas:
+  * `(lambda (args...) body)` Anomymous function
   * `(\ (args...) body)` Lambda a la Haskell :) \x -> x + x
   * `(fn arg body)` Lambda of one argument. Useful for curried functions
   * `(fun arg body)` Variant of the above for those of us who like to have some fun
   * `((lambda (x y) (+ x y)) 5 6)` Lambda application
 
-+ * `(do (expr1) (expr2) ...)`
+* Sequential evalueation:
+  * `(do (expr1) (expr2) ...)`
   Sequential evaluation with results of previous evaluation being saved in local environment. This means that variable `i` defined in `expr1` is visible in all following expressions, but not visible outside of `do`
   * `(begin (expr1) (expr2) ...)` Syntactic variant of the above
 
@@ -46,13 +50,13 @@ Built-in functions
 ------------------
 
 * **Boolean:** `t`, `nil`
-* **Type-check:** `bool?`, `number?`
+* **Type-check:** `bool?`, `number?`, `defined?`
 * **Check:** `nil?`, `null?`
 * **Constants:** `pi`, `e`
 * **Arithmetics:** `+`, `-`, `*`, `/`, `max`, `min`, `abs`, `round`, `mod`, `odd?`, `even?`
 * **Comparison:** `=`, `!=`, `>`, `<`, `>=`, `<=`
 * **List:** `cons`, `snoc`, `car`, `cdr`, `len`
-* **Output:** `echo`
+* **Output:** `echo`, `print`
 * **Strings:** capitalize, upcase, downcase, length, char, format, fmt
 * **Exit:** `exit`, `quit` (with optional errorcode)
 
