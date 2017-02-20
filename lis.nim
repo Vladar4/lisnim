@@ -137,11 +137,11 @@ proc is_valid_id*(a: Atom): bool =
 proc `$`*(obj: Atom): string =
   ##  Convert ``Atom`` to ``string``.
   case obj.kind
-  of aList:                                   # List
+  of aList:                                     # List
     result = "( "
     for i in obj.list: result &= $i & " "
     result &= ")"
-  of aNumber:                                 # Number
+  of aNumber:                                   # Number
     let
       f = obj.n.toFloat
       i = obj.n.toInt
