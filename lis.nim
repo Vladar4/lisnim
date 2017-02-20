@@ -327,7 +327,10 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
 
   for i in 1..args.high:
     if args[i].kind == aNumber:
-      result.n = op(result.n, args[i].n)
+      try:
+        result.n = op(result.n, args[i].n)
+      except:
+        return atom error getCurrentExceptionMsg()
     else:
       return atom error "Not a number: " & $args[i]
 
@@ -358,7 +361,7 @@ proc fun_isNumber*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 0:
+  if args.len != 1:
     return atom error "null? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
@@ -373,14 +376,14 @@ proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_is_defined*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 0:
+  if args.len != 1:
     return atom error "defined? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
   of aError:
-    atom true
-  else:
     atom false
+  else:
+    atom true
 
 
 proc fun_plus*(args: openArray[Atom]): Atom {.cdecl.} =
@@ -572,7 +575,7 @@ proc fun_print*(args: openArray[Atom]): Atom {.cdecl.} =
   for arg in args:
     stdout.write $arg
   stdout.write "\n"
-  return args[0]
+  return atom()
 
 
 proc fun_capitalize*(args: openArray[Atom]): Atom {.cdecl.} =
@@ -670,7 +673,7 @@ var global_env = newEnv([
   ("number?",   atom fun_isNumber),
   ("nil?",      atom fun_is_null),
   ("null?",     atom fun_is_null),
-  ("defined?"), atom fun_is_defined),
+  ("defined?",  atom fun_is_defined),
   ("pi",        atom number 3.141592653589793),
   ("e",         atom number 2.718281828459045),
   ("+",         atom fun_plus),
