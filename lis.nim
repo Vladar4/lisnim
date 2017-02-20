@@ -294,7 +294,7 @@ proc newEnv(pairs: openArray[(string, Atom)], outer: Env = nil): Env =
 
 
 proc `[]`(env: Env, key: string): Atom =
-  ##  Get ``key`` value from thr environment ``env``.
+  ##  Get ``key`` value from the environment ``env``.
   let key = key.toLower()
   return if env.table.contains(key): env.table[key]
          elif env.outer != nil: env.outer[key]
@@ -358,7 +358,7 @@ proc fun_isNumber*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len <= 0:
+  if args.len != 0:
     return atom error "null? needs 1 argument"
   let fst = args[0]
   return case fst.kind:
@@ -368,6 +368,17 @@ proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
     atom(not fst.b)
   of aError:
     fst        # return aError itself
+  else:
+    atom false
+
+
+proc fun_is_defined*(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 0:
+    return atom error "defined? needs 1 argument"
+  let fst = args[0]
+  return case fst.kind:
+  of aError:
+    atom true
   else:
     atom false
 
@@ -548,8 +559,16 @@ proc fun_len*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_echo*(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "echo needs 1 argument"
+  let fst = args[0]
+  echo $fst
+  return fst
+
+
+proc fun_print*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len < 1:
-    return atom error "echo needs 1 or more arguments"
+    return atom error "print needs 1 or more arguments"
   for arg in args:
     stdout.write $arg
   stdout.write "\n"
@@ -651,6 +670,7 @@ var global_env = newEnv([
   ("number?",   atom fun_isNumber),
   ("nil?",      atom fun_is_null),
   ("null?",     atom fun_is_null),
+  ("defined?"), atom fun_is_defined),
   ("pi",        atom number 3.141592653589793),
   ("e",         atom number 2.718281828459045),
   ("+",         atom fun_plus),
@@ -676,6 +696,7 @@ var global_env = newEnv([
   ("cdr",       atom fun_cdr),
   ("len",       atom fun_len),
   ("echo",      atom fun_echo),
+  ("print",     atom fun_print),
   ("capitalize",atom fun_capitalize),
   ("upcase",    atom fun_upcase),
   ("downcase",  atom fun_downcase),
