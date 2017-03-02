@@ -90,6 +90,30 @@ proc atom*(args: seq[string], body: seq[Atom], env: Env): Atom =
   atom(Fun(args: args, body: body, env: env))
 
 
+proc `==`*(a, b: Atom): bool =
+  if a.kind != b.kind:
+    return false
+  else:
+    case a.kind:
+    of aList:
+      if a.list.len != b.list.len:
+        return false
+      else:
+        for i in 0..<a.list.len:
+          if a.list[i] != b.list[i]:
+            return false
+    of aNumber:
+      return a.n == b.n
+    of aSymbol:
+      return cmp(a.s, b.s) == 0
+    of aBool:
+      return a.b == b.b
+    of aFun:
+      return a.f == b.f
+    of aError:
+      return cmp(a.e.s, b.e.s) == 0
+
+
 # Symbol procs
 
 proc is_comment*(a: Atom): bool =
