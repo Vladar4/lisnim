@@ -237,7 +237,7 @@ proc car*(x: Atom): Atom =
   return case x.kind:
   of aList:
     if x.list.len > 0: x.list[0]
-    else: atom false
+    else: atom error "Empty list"
   of aError:
     x
   else:
@@ -249,7 +249,8 @@ proc cdr*(x: Atom): Atom =
   return case x.kind:
   of aList:
     if x.list.len > 1: atom(x.list[1..^1])
-    else: atom false
+    elif x.list.len == 1: atom @[]
+    else: atom error "Empty list"
   of aError:
     x
   else:
@@ -394,8 +395,7 @@ proc fun_is_null*(args: openArray[Atom]): Atom {.cdecl.} =
   of aBool:
     atom(not fst.b)
   of aError:
-    #fst
-    atom true
+    fst        # return aError itself
   else:
     atom false
 
@@ -440,6 +440,8 @@ proc fun_abs*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "abs needs 1 argument"
   if args[0].kind == aNumber:
     return atom abs(args[0].n)
+  elif args[0].kind == aError:
+    return args[0]    # return aError itself
   else:
     return atom error "Not a number: " & $args[0]
 
@@ -449,6 +451,8 @@ proc fun_round*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "round needs 1 argument"
   if args[0].kind == aNumber:
     return atom number((args[0].n).toInt)
+  elif args[0].kind == aError:
+    return args[0]    # return aError itself
   else:
     return atom error "Not a number: " & $args[0]
 
@@ -526,7 +530,7 @@ proc fun_cons*(args: openArray[Atom]): Atom {.cdecl.} =
     of aError:
       elem
     else:
-      atom error "First argument to cons must be either a symbol or a number"
+      atom error "First argument to cons must be either a symbol or a value"
   else:
     atom error "Second argument to cons must be a list"
 
@@ -544,7 +548,7 @@ proc fun_snoc*(args: openArray[Atom]): Atom {.cdecl.} =
     of aError:
       elem
     else:
-      atom error "Second argument to snoc must be a symbol or a number"
+      atom error "Second argument to snoc must be a symbol or a value"
   else:
     atom error "First argument to snoc must be a list"
 
