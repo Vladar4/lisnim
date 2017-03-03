@@ -237,7 +237,7 @@ proc car*(x: Atom): Atom =
   return case x.kind:
   of aList:
     if x.list.len > 0: x.list[0]
-    else: atom false
+    else: atom error "Empty list"
   of aError:
     x
   else:
@@ -249,7 +249,8 @@ proc cdr*(x: Atom): Atom =
   return case x.kind:
   of aList:
     if x.list.len > 1: atom(x.list[1..^1])
-    else: atom false
+    elif x.list.len == 1: atom @[]
+    else: atom error "Empty list"
   of aError:
     x
   else:
