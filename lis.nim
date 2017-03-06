@@ -365,6 +365,8 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
         result.n = op(result.n, args[i].n)
       except:
         return atom error getCurrentExceptionMsg()
+    elif args[i].kind == aError:
+      return args[i]
     else:
       return atom error "Not a number: " & $args[i]
 
@@ -958,8 +960,7 @@ proc eval(x: Atom, env: Env = global_env): Atom =
     return x
 
   of aError:
-    discard x.e.write
-    return atom false
+    return x # printing is done elsewhere
 
   of aList:
     if x.list.len < 1:
@@ -1168,7 +1169,13 @@ proc execCode*(input: string) =
   ##  Execute a code block (multiple expressions).
   let input = input.split(NewLines).sanitize().join()
   for line in input.expressions:
-    discard execLine(line)
+    let r = execLine(line)
+    case r.kind:
+    of aError:
+      discard r.e.write
+      break
+    else:
+      discard
 
 
 when isMainModule:
@@ -1186,7 +1193,10 @@ when isMainModule:
     while true:
       write(stdout, "lisnim> ")
       try:
-        writeLine(stdout, execLine readLine(stdin))
+        let r = execLine readLine(stdin)
+        case r.kind:
+        of aError: discard r.e.write
+        else:      writeLine(stdout, r)
       except IOError:
         quit_with(0, true)
 
