@@ -620,10 +620,15 @@ proc fun_cdr*(args: openArray[Atom]): Atom {.cdecl.} =
 proc fun_len*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len != 1:
     return atom error "len needs 1 argument"
-  if args[0].kind == aList:
+  let fst = args[0]
+  if fst.kind == aError:
+    return fst
+  elif fst.kind == aList:
     return atom number(len(args[0].list))
+  elif fst.is_string:
+    return atom number fst.str_strip.runeLen
   else:
-    return atom number(1)
+    return atom error "Neither list nor string: " & $fst
 
 
 proc fun_echo*(args: openArray[Atom]): Atom {.cdecl.} =
@@ -675,16 +680,6 @@ proc fun_downcase*(args: openArray[Atom]): Atom {.cdecl.} =
   let fst = args[0]
   if fst.is_string:
     return atom fst.s.toLower()
-  else:
-    return atom error "Not a string: " & $fst
-
-
-proc fun_length*(args: openArray[Atom]): Atom {.cdecl.} =
-  if args.len != 1:
-    return atom error "length needs 1 argument"
-  let fst = args[0]
-  if fst.is_string:
-    return atom number fst.str_strip.runeLen
   else:
     return atom error "Not a string: " & $fst
 
@@ -775,7 +770,6 @@ var global_env = newEnv([
   ("capitalize",atom fun_capitalize),
   ("upcase",    atom fun_upcase),
   ("downcase",  atom fun_downcase),
-  ("length",    atom fun_length),
   ("char",      atom fun_char),
   ("format",    atom fun_format),
   ("fmt",       atom fun_format),
