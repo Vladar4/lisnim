@@ -360,12 +360,13 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
     return atom error "Not a number: " & $args[0]
 
   for i in 1..args.high:
-    if args[i].kind == aNumber:
+    case args[i].kind:
+    of aNumber:
       try:
         result.n = op(result.n, args[i].n)
       except:
         return atom error getCurrentExceptionMsg()
-    elif args[i].kind == aError:
+    of aError:
       return args[i]
     else:
       return atom error "Not a number: " & $args[i]
@@ -378,14 +379,35 @@ template fun_bool*(op: untyped, args: openArray[Atom]): untyped =
     return atom error "Not a number nor bool: " & $args[0]
 
   for i in 1..args.high:
-    if args[i-1].kind == aNumber:
-      if args[i].kind == aNumber: result.b = op(args[i-1].n, args[i].n)
+    let prev = args[i-1]
+    let curr = args[i]
+    case prev.kind:
+    of aError:
+      return prev  # Error itself
+
+    # left is Number
+    of aNumber:
+      case curr.kind:
+      of aNumber:
+        result.b = op(prev.n, curr.n)
+      of aError:
+        return curr # Error itself
       else:
-        return atom error "Not a number: " & $args[i]
+        return atom error "Not a number: " & $curr
+
+    # left is Boolean
+    of aBool:
+      case curr.kind:
+      of aBool:
+        result.b = op(prev.b, curr.b)
+      of aError:
+        return curr # Error itself
+      else:
+        return atom error "Not a boolean: " & $curr
+
+    # left is Je ne sais quoi
     else:
-      if args[i].kind == aBool: result.b = op(args[i-1].b, args[i].b)
-      else:
-        return atom error "Not a bool: " & $args[i]
+      return atom error "Neither a number nor a bool: " & $args[i]
 
 
 proc fun_isBool*(args: openArray[Atom]): Atom {.cdecl.} =
