@@ -499,9 +499,11 @@ proc fun_mod*(args: openArray[Atom]): Atom {.cdecl.} =
     of aError: return i
     else: return atom error "Not a number: " & $i
   let
-    a = fun_divide([args[0], args[1]])
+    fst = args[0]
+    snd = args[1]
+    a = fun_divide([fst, snd])
     b = fun_round([a])
-  return atom(a.n - b.n)
+  return atom(fst.n - b.n * snd.n)
 
 
 type NumberBoolFunc = proc(a, b: Number): bool
