@@ -181,7 +181,6 @@ test "Len with lists and strings":
   """(len "")"""             -> atom number 0
   """(len "test")"""         -> atom number 4
   """(len "Хлеб")"""         -> atom number 4
-  isError """(len)"""
   isError """(len 5)"""
   isError """(len t)"""
 
@@ -203,10 +202,6 @@ test "Strings":
 
   """(downcase "TEST")"""  -> atom "\"test\""
   """(downcase "ХЛЕБ")"""  -> atom "\"хлеб\""
-
-  """(length "")"""        -> atom number 0
-  """(length "test")"""    -> atom number 4
-  """(length "хлеб")"""    -> atom number 4
 
   """(char "string" 2)"""  -> atom "r"
   """(char "string" 0)"""  -> atom "s"

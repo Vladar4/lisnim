@@ -57,7 +57,7 @@ Built-in functions
 * **Comparison:** `=`, `!=`, `>`, `<`, `>=`, `<=`
 * **List:** `cons`, `snoc`, `car`, `cdr`, `len`
 * **Output:** `echo`, `print`
-* **Strings:** capitalize, upcase, downcase, length, char, format, fmt
+* **Strings:** capitalize, upcase, downcase, len, char, format, fmt
 * **Exit:** `exit`, `quit` (with optional errorcode)
 
 Example
