@@ -102,6 +102,7 @@ proc `==`*(a, b: Atom): bool =
         for i in 0..<a.list.len:
           if a.list[i] != b.list[i]:
             return false
+        return true
     of aNumber:
       return a.n == b.n
     of aSymbol:
