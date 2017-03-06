@@ -630,7 +630,7 @@ proc fun_capitalize*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "capitalize needs 1 argument"
   let fst = args[0]
   if fst.is_string:
-    return atom fst.str_strip().title()
+    return atom '"' & fst.str_strip().title() & '"'
   else:
     return atom error "Not a string: " & $fst
 
@@ -691,7 +691,7 @@ proc fun_format*(args: openArray[Atom]): Atom {.cdecl.} =
     var subs: seq[string] = @[]
     for i in 1..args.high:
       subs.add $args[i]
-    return atom(fst.str_strip() % subs)
+    return atom('"' & fst.str_strip() % subs & '"')
   else:
     return atom error "Not a string: " & $fst
 
