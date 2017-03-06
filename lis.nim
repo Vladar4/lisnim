@@ -90,6 +90,14 @@ proc atom*(args: seq[string], body: seq[Atom], env: Env): Atom =
   atom(Fun(args: args, body: body, env: env))
 
 
+proc `not`*(a: Atom): Atom =
+  return case a.kind:
+    of aBool:
+      atom(not a.b)
+    else:
+      atom error "Not a boolean value"
+
+
 proc `==`*(a, b: Atom): bool =
   if a.kind != b.kind:
     return false
@@ -102,6 +110,7 @@ proc `==`*(a, b: Atom): bool =
         for i in 0..<a.list.len:
           if a.list[i] != b.list[i]:
             return false
+        return true
     of aNumber:
       return a.n == b.n
     of aSymbol:
@@ -494,11 +503,18 @@ proc fun_even*(args: openArray[Atom]): Atom {.cdecl.} =
 
 
 proc fun_eq*(args: openArray[Atom]): Atom {.cdecl.} =
-  fun_bool(`==`, args)
+  # fun_bool(`==`, args)
+  result = atom true
+  if args.len < 2:
+    return atom error "Not enough values to compare"
+
+  for i in 1..args.high:
+    if args[i-1] != args[i]:
+      return atom false
 
 
 proc fun_ne*(args: openArray[Atom]): Atom {.cdecl.} =
-  fun_bool(`!=`, args)
+  not fun_eq(args)
 
 
 proc fun_gt*(args: openArray[Atom]): Atom {.cdecl.} =
@@ -593,6 +609,12 @@ proc fun_echo*(args: openArray[Atom]): Atom {.cdecl.} =
   echo $fst
   return fst
 
+proc fun_repr*(args: openArray[Atom]): Atom {.cdecl.} =
+  if args.len != 1:
+    return atom error "repr needs 1 argument"
+  let fst = args[0]
+  echo $fst.repr
+  return fst
 
 proc fun_print*(args: openArray[Atom]): Atom {.cdecl.} =
   if args.len < 1:
@@ -724,6 +746,7 @@ var global_env = newEnv([
   ("cdr",       atom fun_cdr),
   ("len",       atom fun_len),
   ("echo",      atom fun_echo),
+  ("repr",      atom fun_repr),
   ("print",     atom fun_print),
   ("capitalize",atom fun_capitalize),
   ("upcase",    atom fun_upcase),
