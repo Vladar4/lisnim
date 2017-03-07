@@ -719,6 +719,17 @@ proc fun_format*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "Not a string: " & $fst
 
 
+proc fun_make_err*(args: openArray[Atom]): Atom {.cdecl.} =
+  let fst = args[0]
+  return
+    if fst.kind == aError:
+      fst
+    elif fst.is_string:
+      atom error fst.str_strip
+    else:
+      atom error($fst)
+
+
 proc quit_with*(errorcode: int, newline = false) =
   if newline:
     echo ""
@@ -777,6 +788,7 @@ var global_env = newEnv([
   ("char",      atom fun_char),
   ("format",    atom fun_format),
   ("fmt",       atom fun_format),
+  ("err",       atom fun_make_err),
   ("exit",      atom fun_quit),
   ("quit",      atom fun_quit),
   ])
