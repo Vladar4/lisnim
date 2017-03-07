@@ -353,6 +353,8 @@ template fun_isType*(typ: AtomKind, args: openArray[Atom]): untyped =
 
 template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
   ##  Template for a function of type ``op(num1, num2, ...): num``.
+  if args.len < 1:
+    return atom error "Math functions need at least 1 argument"
   case args[0].kind:
   of aNumber:
     result = atom args[0].n
@@ -512,6 +514,8 @@ proc fun_mod*(args: openArray[Atom]): Atom {.cdecl.} =
 
 type NumberBoolFunc = proc(a, b: Number): bool
 proc odd_or_even*(chk: NumberBoolFunc, args: openArray[Atom]): Atom =
+  if args.len < 1:
+    return atom error "odd/even functions need at least 1 argument"
   for i in args:
     case i.kind:
     of aNumber:
