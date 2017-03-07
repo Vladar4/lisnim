@@ -1117,12 +1117,10 @@ proc eval(x: Atom, env: Env = global_env): Atom =
 
         case cdr.kind:
         of aList:
+          # if there are args
           if cdr.list.len > 0:
             for i in cdr.list.items:
               args.add(eval(i, env))
-          # just one argument
-          else:
-            args.add(eval(cdr, env))
         of aError:
           return cdr
         else:
