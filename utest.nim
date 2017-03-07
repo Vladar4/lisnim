@@ -187,10 +187,10 @@ test "Len with lists and strings":
 
 test "Echo":
   """(echo 5)"""         -> atom number 5
-  """(echo)"""           -> atom()
   """(echo "test")"""    -> atom "\"test\""
   """(echo t)"""         -> atom true
   """(echo nil)"""       -> atom false
+  isError """(echo)"""
 
 
 test "Strings":
