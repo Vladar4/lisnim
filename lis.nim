@@ -374,6 +374,8 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
 
 template fun_bool*(op: untyped, args: openArray[Atom]): untyped =
   ##  Template for a function of type ``op(num1, num2, ...): bool``.
+  if args.len < 2:
+    return atom error "Comparision functions need at least 2 arguments"
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
     return atom error "Not a number nor bool: " & $args[0]
