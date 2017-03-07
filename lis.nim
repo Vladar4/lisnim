@@ -374,6 +374,8 @@ template fun_numbers*(op: untyped, args: openArray[Atom]): untyped =
 
 template fun_bool*(op: untyped, args: openArray[Atom]): untyped =
   ##  Template for a function of type ``op(num1, num2, ...): bool``.
+  if args.len < 2:
+    return atom error "Comparision functions need at least 2 arguments"
   result = Atom(kind: aBool)
   if args[0].kind notin {aNumber, aBool}:
     return atom error "Not a number nor bool: " & $args[0]
@@ -717,6 +719,17 @@ proc fun_format*(args: openArray[Atom]): Atom {.cdecl.} =
     return atom error "Not a string: " & $fst
 
 
+proc fun_make_err*(args: openArray[Atom]): Atom {.cdecl.} =
+  let fst = args[0]
+  return
+    if fst.kind == aError:
+      fst
+    elif fst.is_string:
+      atom error fst.str_strip
+    else:
+      atom error($fst)
+
+
 proc quit_with*(errorcode: int, newline = false) =
   if newline:
     echo ""
@@ -775,6 +788,7 @@ var global_env = newEnv([
   ("char",      atom fun_char),
   ("format",    atom fun_format),
   ("fmt",       atom fun_format),
+  ("err",       atom fun_make_err),
   ("exit",      atom fun_quit),
   ("quit",      atom fun_quit),
   ])
