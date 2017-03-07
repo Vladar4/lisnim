@@ -344,6 +344,8 @@ proc `[]=`(env: Env, key: string, val: Atom) {.inline.} =
 
 template fun_isType*(typ: AtomKind, args: openArray[Atom]): untyped =
   ##  Template for a function of type ``kind(atom): bool``.
+  if args.len < 1:
+    return atom error "1 or more arguments expected"
   for i in args:
     if i.kind != typ: return atom false
   return atom true
