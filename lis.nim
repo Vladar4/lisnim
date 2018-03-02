@@ -294,7 +294,7 @@ proc toStrList*(a: Atom): seq[string] =
 proc take*[T](ls: seq[T], n: int = 1): seq[T] =
   return if n > ls.len: ls
          elif n < 1: @[]
-         else: ls[0 .. <n]
+         else: ls[0 ..< n]
 
 
 proc takelast*[T](ls: seq[T], n: int = 1): seq[T] =
@@ -1158,7 +1158,7 @@ proc sanitize(input: seq[string]): seq[string] =
     # comments
     let comment = line.find(';')
     if comment > -1:
-      result.add line[0 .. <comment]
+      result.add line[0 ..< comment]
     # empty strings
     elif line.len > 0:
       result.add line
