@@ -32,7 +32,7 @@ import strutils except toLower, toUpper
 type
   Number* = Rational[int]
 
-template number*(i: float): Number = toRational(i, high(int32))
+template number*(i: float): Number = toRational(i)
 template number*[T](i: T): Number = toRational(i)
 
 
