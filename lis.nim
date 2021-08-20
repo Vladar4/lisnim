@@ -871,7 +871,7 @@ proc tokenize(input: string): seq[string] {.noSideEffect.} =
   var
     inStr = false
     seqStr: seq[string] = @[]
-  for token in input.split():
+  for token in unicode.split(input):
     if inStr:
       if token == "\"":
         inStr = false
